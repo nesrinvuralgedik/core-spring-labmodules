@@ -199,3 +199,64 @@ In this lab we will fulfill two non-functional requirements in the Rewards appli
    * Since we enabled component scanning in an earlier step, we just wired DBExceptionHandlingAspect class for component scan to be picked up.
 13) Ran `DBExceptionHandlingAspectTests` to validate our AOP is working.
    * The test passed with a warning message in the console, this means our exception handling behavior has been implemented correctly.
+
+# MODULE 7 - Testin Spring Applications
+
+## Testin Spring Applications Lab
+
+In this lab we will refactor the `RewardNetworkTests` using Spring’s system test support library (`TestContext framework`) to simplify and improve the performance of our testing system. 
+We will then use Spring profiles to define multiple tests using different implementations of the `AccountRepository`, `RestaurantRepository` and `RewardRepository` for different environments.
+
+Specific subjects we will gain experience with:
+* JUnit 5
+* Spring’s TestContext framework
+* Spring Profiles
+
+1) Refactored `rewards.RewardNetworkTests` to use Spring’s `TestContext` framework
+   * In `rewards.RewardNetworkTests`, we set up our test-environment using Spring in the `@BeforeEach` setUp method. 
+   * So the ApplicationContext gets recreated each time test method gets invoked. This results in inefficient and slow testing performance.
+   * Instead we are going to use Spring’s test-extension which is `TestContext` framework.
+   * Removed `setUp()` and `tearDown()` methods in the `rewards/RewardNetworkTests` class.
+   * To use Spring TestContext Framework, annotated the class with `@SpringJUnitConfig(classes=TestInfrastructureConfig.class)`, which is a composite annotation of `@ExtendWith(SpringExtension.class)` and `@ContextConfiguration(classes=TestInfrastructureConfig.class)`
+   * Removed the attribute `context` because it is not needed anymore.
+   * Ran the test to see it fails. Because `rewardNetwork` is not injected.
+   * Used `@Autowired` to populate the `rewardNetwork` bean from the ApplicationContext.
+   * Re-ran the test to verify the test passes.
+   * We've successfully reconfigured the rewards integration test, and at the same time simplified our system test by leveraging Spring’s test support.
+   * In addition, the performance of our system test has potentially improved as the ApplicationContext is now created once per test case run (and cached). 
+2) Configured Repository Implementations using Profiles
+   * Modified the test to use different repository implementations - either Stubs or using JDBC.
+   * Annotated all `Stub*Repository` classes in `/src/test/java/rewards/internal` with `@Repository` to make them Spring beans.
+   * Ran `RewardNetworkTests` to see it fails because we have multiple beans of the same type in the application context - the original JDBC implementations and now the stubs and Spring doesn't know which one to inject (Ambiguity situation).
+   * To fix this problem defined two profiles:
+     * Assigned the `"jdbc"` profile to all actual `Jdbc*Repository` classes in `src/main/java` by using `@Profile` annotation.
+     * In the same way, assigned the `"stub"` profile to all test `Stub*Repository` classes in `src/main/test`.
+     * Annotated the `RewardNetworkTests` class with `@ActiveProfiles` to make `"stub"` the active profile.
+     * Reran the test to see it passes now.
+     * Checked the console to see that the stub repository implementations are being used.
+     * Noticed that the embedded database is also being created even though we don’t use it. We will fix this soon.
+   * Switched the active-profile to `"jdbc"` in `RewardNetworkTests` class.
+     * Reran the test to see it still passes.
+     * Checked the console again to see that the JDBC repository implementations are being used.
+3) Switching between Development and Production Profiles
+   * Profiles allow different configurations for different environments such as development, testing, QA (Quality Assurance), UAT (User Acceptance Testing), production and so forth.
+   * We will define two new profiles: `"local"` and `"jndi"`.
+   * In both cases, we will be using the JDBC implementations of our repositories so two profiles will need to be active at once.
+   * The difference between `local` and `jndi` is different infrastructure configuration.
+   * We are going to swap between an in-memory test database (local profile) and the "real" database defined as a JNDI resource (jndi profile).
+     * Assigned beans to the `"local"` profile in `TestInfrastructureLocalConfig` class.
+     * Ran `RewardNetworkTests` class to see it fails because now that the bean `dataSource` is specific to the `local` profile.
+     * Added "local" as active profile to the @ActiveProfiles annotation in `RewardNetworkTests` class so the current test uses 2 profiles ('jdbc' and 'local').
+     * Reran the test to see it passes now.
+     * In `TestInfrastructureJndiConfig` class, a "real" data source using a JNDI lookup has already been set up by using a standalone JNDI implementation.
+     * Checked `TestInfrastructureJndiConfig` class to see that the different datasource will be used if the profile = `"jndi"`.
+     * Updated `RewardNetworkTests` class update, so it uses profiles 'jdbc' and 'jndi' as active profiles. 
+     * Reran the test to see it passes.
+     * Checked the console to see what has changed; logging from an extra bean called `SimpleJndiHelper`.
+     * Switched the profile back from "jndi" to "local" and reran. Check the console and note that the `SimpleJndiHelper` is no longer used.
+4) Further Refactoring to create an inner static class from `TestInfrastructureConfig` (Optional, not applied to the code)
+   * When no class is specified, Spring’s test framework will look for an inner static class marked with `@Configuration`.
+   * Since the `TestInfrastructureConfig` class is so small anyway, copy the entire class definition, including annotations, to an inner static class within the test class (make the class static).
+   * Remove the configuration class reference from the `@SpringJUnitConfig` annotation (no property in the brackets).
+   * This is an example of convention over configuration.
+   * Run the test to see it should still pass.
