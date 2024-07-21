@@ -1,13 +1,10 @@
 package rewards.internal.restaurant;
 
 import common.money.Percentage;
-import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import rewards.Dining;
 import rewards.internal.account.Account;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -15,7 +12,7 @@ import java.sql.SQLException;
  * Loads restaurants from a data source using the JDBC API.
  */
 
-// TODO-09 (Optional) : Inject JdbcTemplate directly to this repository class
+// TODO-09: (Optional) : Inject JdbcTemplate directly to this repository class
 // - Refactor the constructor to get the JdbcTemplate injected directly
 //   (instead of DataSource getting injected)
 // - Refactor RewardsConfig accordingly
@@ -38,27 +35,16 @@ import java.sql.SQLException;
 
 public class JdbcRestaurantRepository implements RestaurantRepository {
 
-	private DataSource dataSource;
+	private JdbcTemplate jdbcTemplate;
 
-	public JdbcRestaurantRepository(DataSource dataSource) {
-		this.dataSource = dataSource;
+	public JdbcRestaurantRepository(JdbcTemplate jdbcTemplate) {
+		this.jdbcTemplate = jdbcTemplate;
 	}
 
 	public Restaurant findByMerchantNumber(String merchantNumber) {
 		String sql = "select MERCHANT_NUMBER, NAME, BENEFIT_PERCENTAGE, BENEFIT_AVAILABILITY_POLICY"
 				+ " from T_RESTAURANT where MERCHANT_NUMBER = ?";
-		Restaurant restaurant = null;
-
-		try (Connection conn = dataSource.getConnection();
-			 PreparedStatement ps = conn.prepareStatement(sql) ){
-			ps.setString(1, merchantNumber);
-			ResultSet rs = ps.executeQuery();
-			advanceToNextRow(rs);
-			restaurant = mapRestaurant(rs);
-		} catch (SQLException e) {
-			throw new RuntimeException("SQL exception occurred finding by merchant number", e);
-		}
-
+		Restaurant restaurant = jdbcTemplate.queryForObject(sql, this::mapRestaurant, merchantNumber);
 		return restaurant;
 	}
 
@@ -66,7 +52,7 @@ public class JdbcRestaurantRepository implements RestaurantRepository {
 	 * Maps a row returned from a query of T_RESTAURANT to a Restaurant object.
 	 * @param rs the result set with its cursor positioned at the current row
 	 */
-	private Restaurant mapRestaurant(ResultSet rs) throws SQLException {
+	private Restaurant mapRestaurant(ResultSet rs, int rowNumber) throws SQLException {
 		// Get the row column data
 		String name = rs.getString("NAME");
 		String number = rs.getString("MERCHANT_NUMBER");
@@ -77,18 +63,6 @@ public class JdbcRestaurantRepository implements RestaurantRepository {
 		restaurant.setBenefitPercentage(benefitPercentage);
 		restaurant.setBenefitAvailabilityPolicy(mapBenefitAvailabilityPolicy(rs));
 		return restaurant;
-	}
-
-	/**
-	 * Advances a ResultSet to the next row and throws an exception if there are no rows.
-	 * @param rs the ResultSet to advance
-	 * @throws EmptyResultDataAccessException if there is no next row
-	 * @throws SQLException
-	 */
-	private void advanceToNextRow(ResultSet rs) throws EmptyResultDataAccessException, SQLException {
-		if (!rs.next()) {
-			throw new EmptyResultDataAccessException(1);
-		}
 	}
 
 	/**

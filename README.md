@@ -260,3 +260,70 @@ Specific subjects we will gain experience with:
    * Remove the configuration class reference from the `@SpringJUnitConfig` annotation (no property in the brackets).
    * This is an example of convention over configuration.
    * Run the test to see it should still pass.
+
+# MODULE 8 - JDBC Simplification with JdbcTemplate
+
+## JDBC Simplification with JdbcTemplate Lab
+
+Specific subjects we will gain experience with:
+* JdbcTemplate class
+* RowMapper interface
+* ResultSetExtractor interface
+
+The existing JDBC based repository codebase uses low-level DataSource object directly for performing various database operations, which results in complex and duplicating boilerplate code.
+It also requires for mapping the data read from database into the domain objects. This could be a tedious programming task.
+In this lab, we are going to refactor this codebase to use Spring-provided `JdbcTemplate` class, which will result in simpler and easy to read code.
+
+1) Refactored `JdbcRewardRepositoryTests` class
+   * Used `JdbcTemplate` to query for the number of rows in the `getRewardCount()` method.
+   * Used `JdbcTemplate` to query for a map of all column values of a row based on the `confirmationNumber` in the `verifyRewardInserted(RewardConfirmation, Dining)` method.
+   * Ran the test class to see it passes.
+2) Refactored `JdbcRewardRepository` class to use JdbcTemplate
+   * Added a private field of type `JdbcTemplate`.
+   * In the constructor, instantiated the `JdbcTemplate` object from the given `DataSource` object and assigned it to the private field we just created.
+   * Refactored the `confirmReward(...)` method to use `JdbcTemplate`
+     * Used update(String, Object...) method.
+   * Refactored the `nextConfirmationNumber()` method to use `JdbcTemplate`
+     * Used `queryForObject(String, Class<T>, Object...)` method. 
+     * The `Object...` represents a variable argument list allowing us to append an arbitrary number of arguments to a method invocation, including no arguments at all.
+   * Ran `JdbcRewardRepositoryTests` to verity it passes.
+3) Refactored `JdbcRestaurantRepository` class to use JdbcTemplate and RowMapper for creating Domain Object
+   * Added a private field of type `JdbcTemplate`.
+   * In the constructor, instantiated the `JdbcTemplate` object from the given `DataSource` object and assigned it to the private field we just created.
+   * Refactored the `findByMerchantNumber(..)` method to use `JdbcTemplate` and `RowMapper` for creating a `Restaurant` object.
+     * Created a `RowMapper` object, which we will pass as an argument to the `jdbcTemplate.queryForObject(String, RowMapper<T>, Object...)` method.
+       * Used a Lambda expression to create a `RowMapper` and then refactored `mapRestaurant` method to use it as a method reference which is the shorthand notation of a lambda expression to call a method.
+       * We can also create a RowMapper object two other ways:
+         * Create it from an anonymous inner class
+         * Write a private inner class and create an object from it.
+   * Ran `JdbcRestaurantRepositoryTests` to verity it passes
+4) Refactored `JdbcAccountRepository` class to use JdbcTemplate
+   * Added a private field of type `JdbcTemplate`.
+   * In the constructor, instantiated the `JdbcTemplate` object from the given `DataSource` object and assigned it to the private field we just created.
+   * Refactored the `updateBeneficiaries(Account)` method to use `JdbcTemplate`
+   * Ran `JdbcAccountRepositoryTests` to verity it passes.
+5) Used a `ResultSetExtractor` to Traverse a ResultSet for Creating `Account` Objects
+   * Refactored `findByCreditCard(..)` method to use the `query(String, ResultSetExtractor<T>, Object...)` method of the `JdbcTemplate`
+   * We can create a `ResultSetExtractor` object in three different ways:
+     * Create it as a Lambda expression
+     * Create it from an anonymous inner class
+     * Write a private inner class and create an object from it
+   * Created the `ResultSetExtractor` as a method reference which is the shorthand notation of a lambda expression to call a method.
+     * The implementation of the `extractData(ResultSet)` method of the `ResultSetExtractor` object should delegate to the provided `mapAccount(ResultSet)` method for actually creating an `Account` object.
+   * Ran `JdbcAccountRepositoryTests` to verity it passes.
+6) Refactored the constructor of `JdbcRewardRepository` to get the `JdbcTemplate` injected directly (instead of `DataSource` getting injected)
+    * Refactored `RewardsConfig` accordingly by defining `@Bean` for `JdbcTemplate` and using it in the `rewardRepository` to create `JdbcRewardRepository`.
+    * Refactored `JdbcRewardRepositoryTests` accordingly by changing `setUp()` method, first creating `JdbcTemplate` and then `Repository`.
+    * Ran `JdbcRewardRepositoryTests` to verity it passes.
+7) Refactored the constructor of `JdbcRestaurantRepository` to get the `JdbcTemplate` injected directly (instead of `DataSource` getting injected)
+    * Refactored `RewardsConfig` accordingly by using predefined `jdbcTemplate` in the `restaurantRepository` to create `JdbcRestaurantRepository`.
+    * Refactored `JdbcRestaurantRepositoryTests` accordingly by changing `setUp()` method.
+    * Ran `JdbcRestaurantRepositoryTests` to verity it passes.
+8) Refactored the constructor of `JdbcAccountRepository` to get the `JdbcTemplate` injected directly (instead of `DataSource` getting injected)
+    * Refactored `RewardsConfig` accordingly by using predefined `jdbcTemplate` in the `accountRepository` to create `JdbcAccountRepository`.
+    * Refactored `JdbcAccountRepositoryTests` accordingly by changing `setUp()` method.
+    * Ran `JdbcAccountRepositoryTests` to verity it passes.
+
+
+
+
