@@ -185,6 +185,7 @@
         <module>28-transactions</module>
 
         <!-- Section: Spring Boot -->
+        <module>30-jdbc-boot</module>
 
         <!-- Day 3 -->
         <module>32-jdbc-autoconfig</module>
