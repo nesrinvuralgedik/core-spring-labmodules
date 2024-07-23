@@ -324,6 +324,45 @@ In this lab, we are going to refactor this codebase to use Spring-provided `Jdbc
     * Refactored `JdbcAccountRepositoryTests` accordingly by changing `setUp()` method.
     * Ran `JdbcAccountRepositoryTests` to verity it passes.
 
+# MODULE 9 - Transaction Management with Spring
 
+## Transaction Management with Spring Lab
 
+In this lab, we will learn how to identify where to apply transactionality and how to apply transactionality to a method.
 
+1) Marked Transactional Boundaries by using annotations to identify where transactionality should be applied and what configuration to use.
+   * Added `@Transactional` annotation to `rewardAccountFor(Dining)` method in the `rewards.internal.RewardNetworkImpl` class
+   * Made sure to use the annotation from Spring not from Java EE.
+   * Adding the annotation will identify this method as a place to apply transactional semantics at runtime.
+   * Added a `DataSourceTransactionManager` bean to the `SystemTestConfig` configuration class.
+     * Defined a bean named `transactionManager` that configures a `DataSourceTransactionManager` by setting the dataSource property on this bean.
+   * Added `@EnableTransactionManagement` annotation to the RewardsConfig file to enable Spring transaction
+     * For backwards compatibility with older applications, Spring annotations are not enabled automatically, so we have to turn them on.
+2) Verified that our transaction declarations are working correctly by running the `RewardNetworkTests` class from the `src/test/java` source folder.
+   * Noticed that DEBUG logging is enabled in `setup()`, so checked the logging output.
+   * The test passed and verified that only a single connection was acquired and a single transaction is created.
+3) Modified Propagation Behavior
+   * Reviewed `RewardNetworkPropagationTests` from the rewards package in the `src/test/java` source folder.
+     * It's a simple verification of data in the database and also performs manual transaction management.
+     * The test opens a transaction at the beginning, (using the `transactionManager.getTransaction(..)` call).
+     * Next, it executes `rewardAccountFor(Dining)`
+     * Then rolls back the transaction (manual rollback)
+     * And finally tested to see if data has been correctly inserted into the database.
+   * Ran the test class to see that it failed because the rollback removed all data from the database, including the data that was created by the `rewardAccountFor(Dining)` method.
+   * Changed the propagation level of the transactional attributes of the `rewardAccountFor()` method in `RewardNetworkImpl` to require a NEW transaction whenever invoked.
+     * The `@Transactional` annotation will use the default propagation level of `Propagation.REQUIRED` which means that it will participate in any transaction that already exists.
+     * Overrode the default propagation behavior with `Propagation.REQUIRES_NEW`.
+   * Reran the `RewardNetworkPropagationTests` to verify it passes now.
+     * We have verified that the test’s transaction was suspended and the `rewardAccountFor(Dining)` method executed in its own transaction.
+4) For Developing Transactional Tests Use `@Transactional` to isolate test cases
+   * When dealing with persistent data in a test scenario, it can be very expensive to ensure that preconditions are met before executing a test case.
+   * It can also be error-prone with later tests inadvertently depending on the effects of earlier tests.
+   * Spring provides some support classes for helping with these issues.
+     * Restored Default Propagation(REQUIRED) by removing the propagation attribute of `@Transactional` in `RewardNetworkImpl`.
+     * Examine the `@Test` logic in `RewardNetworkSideEffectTests` from the rewards package in the `src/test/java` source folder.
+     * Ran this test to see the second test fails. Because the committed results from the first test will invalidate the assertions in the second test.
+   * Added `@Transactional` annotation to `RewardNetworkSideEffectTests` at the class level and reran the test to see it passes now.
+     * Spring has a facility to help avoid the corruption of test data in a DataSource.
+     * Simply annotate each test method with `@Transactional` or put `@Transactional` at the class level to apply to all tests in the class.
+     * Spring provides Automatic Rollback in Transactional Tests by wrapping each test case in its own transaction and rolls back that transaction when the test case is finished.
+     * The data is never committed to the tables and therefore, the database is in its original state for the start of the next test case.
