@@ -366,3 +366,132 @@ In this lab, we will learn how to identify where to apply transactionality and h
      * Simply annotate each test method with `@Transactional` or put `@Transactional` at the class level to apply to all tests in the class.
      * Spring provides Automatic Rollback in Transactional Tests by wrapping each test case in its own transaction and rolls back that transaction when the test case is finished.
      * The data is never committed to the tables and therefore, the database is in its original state for the start of the next test case.
+
+# MODULE 10 - Spring Boot Feature Introduction
+
+## Spring Boot Feature Introduction Lab
+
+In this lab we will create a Spring Boot project from the beginning, taking advantage of the Spring starters to easily configure our project
+
+### Use Case
+
+We will create a very simple application to access and display information about the accounts in our Reward database.
+
+In a traditional Spring project, we enjoy the developer productivity provided by the framework to simplify application development. 
+However, configuring a project with the right dependencies to ensure we have all the right Spring libraries can be challenging and time-consuming.
+
+Consider the necessary setup just to configure a JDBC project.
+
+1) We need to obtain the right JDBC drivers for the database
+2) We need to obtain the core Spring and Spring JDBC libraries
+3) We need to configure our JDBC connections and potentially initialize
+4) We may wish to add JDBC connection pooling for efficiency
+5) We may need to set up database initialization with schema definitions and data population
+
+The most basic Spring Boot application really only requires the following three files to get started.
+1) `pom.xml`: Setup Spring Boot (and any other) dependencies (Could be a `build.gradle` file for Gradle)
+2) `application.properties`: General configuration such as Database setup
+3) `Application class`: Application launcher
+
+* We will use the `Spring Initializr` to create a basic `JDBC Spring Boot Project` using an `HSQLDB (Hyper SQL)` database. 
+* We will make a few minor modifications to add SQL scripts to create tables and populate the database with data for the `Reward Network` application. 
+* The initial application will use a very simple `JDBC` call to query the `T_ACCOUNT` table and display the total number of accounts. 
+* Using Spring Boot, we will do this with a minimal amount of setup and configuration.
+
+### Instructions
+
+1) Created a Spring Boot Project by using `Spring Initializr` website directly ([https://start.spring.io/](https://start.spring.io/)) with the following project values:
+   * **Project:** Maven Project
+   * **Language:** Java
+   * **Spring Boot Version:** 3.3.2 (or latest)
+   * **Group:** io.spring.training.boot
+   * **Artifact:** 30-jdbc-boot
+   * **Name:** 30-jdbc-boot
+   * **Description:** First Boot Project
+   * **Package name:** rewards
+   * **Packaging:** JAR
+   * **Java:** 17 (or later version)
+   * **Starter Dependencies:** 
+     * **JDBC API** - Adds general JDBC support, including the Spring JDBC libraries.
+     * **HyperSQL Database** - Adds specific HSQL libraries and drivers needed for the HSQL database.
+2) Downloaded the generated zip and imported into the IDE.
+   * Open `pom.xml`(or `build.gradle`) and noted the dependencies and the parent reference.
+   
+     * 3 dependencies are defined:
+     ```xml
+      <dependencies>
+       <dependency>
+       <groupId>org.springframework.boot</groupId>
+       <artifactId>spring-boot-starter-jdbc</artifactId>
+       </dependency>
+       <dependency>
+           <groupId>org.hsqldb</groupId>
+           <artifactId>hsqldb</artifactId>
+           <scope>runtime</scope>
+       </dependency>
+       <dependency>
+           <groupId>org.springframework.boot</groupId>
+           <artifactId>spring-boot-starter-test</artifactId>
+           <scope>test</scope>
+       </dependency>
+   </dependencies>`
+
+   * Parent reference:
+     ```xml
+     <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.2</version>             
+     </parent>
+
+3) Checked `JdbcBootApplication` class which is annotated with `@SpringBootApplication`. This annotation makes it behave as a Spring Boot application.
+4) Set the logging level to DEBUG by adding `logging.level.root=DEBUG` to the `src/main/resources/application.properties` file.
+5) Ran the `JdbcBootApplication` successfully and saw `CONDITIONS EVALUATION REPORT` which shows that a set of AutoConfiguration classes including `DataSourceAutoConfiguration` are executed.
+6) Normally, a JDBC DataSource is initialized using a JDBC driver class, the URL to the database server and more. 
+Since these were not provided explicitly by us, Spring Boot configured a data source of an embedded database just because we have these dependencies in the class path.
+This is how autoconfiguration works in a Spring Boot Application.
+7) Used SQL Scripts to Initialize Database with Tables and Load the Tables with Data. 
+   * Copied the `schema.sql` and `data.sql` files in `src/test/resources/rewards/testdb` of JDBC Spring project to `src/main/resources` folder of our new project. 
+   * The two files should reside directly under the `resources` folder.
+   * Reran the `JdbcBootApplication` and noticed the console output now shows a bit more taking place.
+     * Noted that a `HikariPool` JDBC connection pool was created and configured for the DataSource.
+     * Noticed also that the two scripts we copied to the `resources` folder now automatically get executed.
+     * Resulting in the database being initialized with the tables defined in the `schema.sql` file and loaded with the data in the `data.sql` file. 
+     * We can see the output by searching for _"Executed SQL script"_ string in the console.
+     * It turns out that there was something special about the location where we copied the SQL scripts (`src/main/resources`).
+     * Because in a Maven or Gradle project, this directory is always on the classpath. 
+     * The SQL files were detected and invoked because Spring Boot automatically looks for and runs two files `schema.sql` and `data.sql` if it finds them on the classpath.
+     * Alternatively, we could have placed those files anywhere in our project and named them anything we wanted. 
+     * In that case, we would need to add the following entries to our `application.properties` file to tell our Spring Boot application where to find these files.
+       ```
+       spring.sql.init.schema-locations=<path to your schema SQL file>
+       spring.sql.init.data-locations=<path to your data SQL file>
+       
+8) Used `CommandLineRunner` Bean
+   * The `run` method of `CommandLineRunner` bean gets executed when a Spring Boot application gets started.
+   * Added a `CommandLineRunner` bean in the `JdbcBootApplication` class and used `JdbcTemplate` bean to retrieve number of accounts.
+   * Defined Query to select number of accounts from Account table.
+   * Used lambda expression to display the result.
+   * Reran the `JdbcBootApplication` to see the output line in the console.
+   * Here are some questions to consider:
+     * **Where did the JdbcTemplate bean come from?**
+       The `JdbcTemplate` bean is provided by the Spring Boot framework. When we include the `spring-boot-starter-jdbc` dependency in our `pom.xml`, Spring Boot automatically configures the necessary beans, including the `JdbcTemplate`.
+     * **How did the DataSource get created and configured and dependency injected into the JdbcTemplate?**
+       1) **Spring Boot Auto-Configuration:** Spring Boot uses autoconfiguration to set up the `DataSource` bean automatically. 
+       Spring Boot simplifies development by reducing the need for explicit bean definitions and configurations.
+       When the `spring-boot-starter-jdbc` dependency is included, Spring Boot scans the classpath for JDBC drivers and automatically configures a `DataSource` bean based on properties defined in the `application.properties` file.
+       2) **Default Configuration:** If we do not provide a specific `DataSource` configuration in the `application.properties`, Spring Boot will use its default settings to create a `DataSource`. 
+       This includes defaults for in-memory databases like `H2, HSQLDB, or Derby`.
+       3) **Property Configuration:** In a typical Spring Boot application, you would specify the database connection details in the `application.properties` file. 
+       4) **Dependency Injection:** Once the `DataSource` bean is created and configured, Spring Boot injects it into the `JdbcTemplate`. 
+       This is done automatically by Spring Boot's dependency injection mechanism. 
+       The `JdbcTemplate` bean is created by Spring Boot and is injected wherever it is required (like in our `CommandLineRunner` bean in the `JdbcBootApplication` class).
+9) Set the logging level to ERROR by adding `logging.level.root=ERROR`
+10) Created Customized Banner
+    * Created `banner.txt` under `src/main/resources` folder. 
+    * Generated a banner text and copied it into the `banner.txt` file.
+    * Reran the application to see the previous output with the banner text.
+11) Wrote Integration Testing Code
+    * Wrote testing code using `@SpringBootTest` annotation in the `JdbcBootApplicationTests`.
+    * `JdbcTemplate` is injected to the test by defining a field with `@Autowired` annotation
+    * Ran the test to verify it succeeds.
