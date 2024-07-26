@@ -495,3 +495,151 @@ This is how autoconfiguration works in a Spring Boot Application.
     * Wrote testing code using `@SpringBootTest` annotation in the `JdbcBootApplicationTests`.
     * `JdbcTemplate` is injected to the test by defining a field with `@Autowired` annotation
     * Ran the test to verify it succeeds.
+
+# MODULE 11 - Spring Boot A Closer Look
+
+## Spring Boot A Closer Look Lab
+
+In this lab we will learn about Spring Boot:
+* Dependency Management
+* Auto-configuration
+* Packaging & Runtime
+* Spring Boot Testing
+
+Specific subjects we will gain experience with:
+* Spring Boot Starter Bill-of-Materials (BOMs)
+* Datasource Auto-configuration
+* Application deployment artifact packaging
+* Simple application runtime with CommandLineRunner
+* Simple SpringBootTest
+
+### Use Case
+Take a Spring application using `JDBC` and convert it to a Spring Boot application.
+The application builds the data access layer using a `Datasource` and a `JdbcTemplate`. 
+
+We will alter that application in three ways:
+
+* Bootify the application, meaning we will wrap the application with Spring Boot, and demonstrate how Spring Boot simplifies our development experience through starters and autoconfiguration.
+* Bootify the application's integration test.
+* Add a `CommandLineRunner` to demonstrate how Spring Boot can package and run an application with no additional runtime dependencies.
+* Demonstrate how to exclude an autoconfiguration.
+* Demonstrate external configuration.
+
+We will also need a Terminal or Command window to run Maven or Gradle manually.
+
+### Instructions
+
+1) **Reviewed of a Spring App – Dependencies**
+   * Ran the full suite of tests to verify the build is successful and tests pass.
+   * Examined the `pom.xml` or `build.gradle` file of the project. 
+   * For the project dependencies, there are a set of libraries covering `Spring Framework`, `Spring JDBC` and `HSQLDB` database, and `Spring Test`.
+   * There is also the `spring-boot-starter` as this is required for `SpringApplication.run()` whether we use the rest of Spring Boot or not.
+2) **Bootified our Spring Application**
+
+   * Refactored to Starters to wrap our app with Spring Boot by adding `Spring Boot Plugin` for Maven to the project's `pom.xml` file (or `build.gradle`)
+     * Added the following xml:
+        
+        ```xml
+        <build>
+             <plugins>
+                 <plugin>
+                     <groupId>org.springframework.boot</groupId>
+                     <artifactId>spring-boot-maven-plugin</artifactId>
+                 </plugin>
+             </plugins>
+        </build> 
+
+     * The Spring Boot plugin simplifies the process of building and packaging Spring Boot applications.
+     * As we build the project, `Spring Boot Plugin` will generate the runtime deployment artifact (_a JAR or WAR file that we can deploy to run our Spring Boot application_) for us through the `repackage` goal for Maven (the `bootJar` task for Gradle).
+     * The `repackage` goal is responsible for creating an executable JAR or WAR file, which includes all necessary dependencies, classes, and resources (uber/fat jar).
+     * The `repackage` goal is run as part of the Maven `package` goal (the `bootJar` task is run as part of Gradle `assemble` task).
+     * Removed the `Spring JDBC` and `Spring Test` dependencies from the project's `pom.xml`(or `build.gradle`) file.
+     * Added the Spring Boot Starters for JDBC and Testing (only for Maven).
+
+   * Turned the `RewardsApplication` class into a Spring Boot application by adding `@SpringBootApplication` annotation.
+     * `@SpringBootApplication` annotation is a composition of multiple annotations such as `@SpringBootConfiguration`, `@EnableAutoConfiguration`, `@ComponentScan`.
+     * Moved the SQL scripts (`schema.sql` and `data.sql`) from `src/test/resources/rewards/testdb` directory to o `src/main/resources/` directory.
+        * We are refactoring the directory structure to the default that Spring Boot expects for its life-cycle initialization - specifically for automatic database initialization.
+        * In the non-Spring Boot version, the `EmbeddedDatabaseBuilder` in `SystemTestConfig` can specify where the SQL initialization files are found.
+        * In Spring Boot applications, the default files are `schema.sql` and `data.sql`, and they must be in the classpath root.
+        * We may choose to specify these files using properties as well.
+        * The starting point of the project does not have a runner, so the files originally were provided to set up a test data fixture.
+        * We are moving the files from `test/resources` to `main/resources`, so we can use the same files in the application runtime to demonstrate the `CommandLineRunner`.
+    * Implemented a `CommandLineRunner` in `RewardsApplication` class configured as a Spring bean by annotating `@Bean`.
+      * It will query count from `T_ACCOUNT` table and log the count to the console.
+      * Added code to use a `JdbcTemplate` to query the number of accounts using SQL query.
+      * Spring Boot autoconfigured a `JdbcTemplate` bean automatically.
+      * Used the provided logger to log the number of accounts at info level.
+      * Ran the application and verified the log message.
+      * The Spring Boot `CommandLineRunner` and `ApplicationRunner` abstractions are guaranteed to run at most once before `SpringApplication.run()` method returns. 
+      * Multiple runners may be configured, and can be ordered with the `@Order` annotation.
+    * Captured properties into a class using `@ConfigurationProperties`
+      * `application.properties` file already contains some properties which has prefix like `rewards.recipient`
+      * Annotated `RewardsRecipientProperties` class by using `@ConfigurationProperties` with prefix attribute set to `rewards.recipient`
+      * Created fields (along with needed getters/setters) that reflect the properties above in the `RewardsRecipientProperties` class.
+      * Added `@EnableConfigurationProperties(RewardsRecipientProperties.class)` to `RewardsApplication` class to enable `@ConfigurationProperties` and make it Spring managed bean.
+      * There are also two other options to do that:
+        * You can add `@ConfigurationPropertiesScan` to `RewardsApplication class` (This is supported from Spring Boot 2.2.1)
+        * You can annotate the `RewardsRecipientProperties` class with `@Component`
+      * Implemented a new command line runner that logs the name of the rewards recipient by using `RewardsRecipientProperties`.
+   * Enabled full debugging in order to observe how Spring Boot performs its autoconfiguration logic.
+     * Added `debug=true` property to our `application.properties`. This causes Spring Boot to log everything it does and what autoconfiguration choices it does and does not make.
+     * Ran the application and see the Auto-Configuration Report, that is prefixed as `"CONDITIONS EVALUATION REPORT"` with `Positive matches:` in the console output.
+        * Checked the logs for `"JdbcTemplateAutoConfiguration matched:"` and `"DataSourceAutoConfiguration matched:"`.
+        * Noted that each `@Conditional*` represents a single conditional statement in the `JdbcTemplateAutoConfiguration` and `DataSourceAutoConfiguration` classes.
+3) **Bootified our Integration Test**
+   * Removed explicit `DataSource` creation in `SystemTestConfig` class used by `RewardNetworkTests`.
+   * Refactored `RewardNetworkTests` into a Spring Boot Integration test.
+     * Ran this test without making any change, it failed. 
+     * Because we removed the explicit `DataSource` creation and the Spring Boot autoconfiguration is not enabled yet.
+     * Removed `@ExtendWith` and `@ContextConfiguration` annotations in RewardNetworkTests.
+     * Added `@SpringBootTest` annotation to run as a Spring Boot Test.
+     * There is no need to specify any configuration classes, because `@SpringBootTest` will automatically component scan for any `@Component` (or `@Configuration`) classes in the current package or below.
+     * Since the `SystemTestConfig` class is in the same package, it will be discovered and processed. This includes processing the `@Import` annotation that references the `RewardsConfig` class containing all the other bean definitions.
+     * This is considered an End-To-End integration test, including the wired components.
+     * Note that in a real production application you are most likely to configure an external database. Spring Boot offers properties to do this.
+     * Ran the `RewardNetworkTests`, it passed now.
+     
+4) Override Auto-Configuration
+   * We have seen to this point that Spring Boot will detect and automatically configure a `DataSource` on our behalf. 
+   * But if we need to configure multiple databases from our application, autoconfiguration cannot really help us.
+   * We have two options to handle this situation:
+     1) Use the default `DataSource` autoconfiguration with supporting default configuration, and also explicitly set additional `DataSource` beans with different names, as specified by the `@Qualifier` annotation. 
+       * We can also set the order of precedence using the `@Order` annotation.
+     2) Disable autoconfiguration for `DataSource`, and explicitly declare multiple `DataSource` beans using Java Configuration.
+
+5) Disabled `DataSource` Auto-Configuration Programmatically.
+   * Switched back to explicit `DataSource` configuration.
+   * Added `DataSource` bean explicitly in the `RewardsConfig` class by uncommenting `@Bean` method.
+   * Removed the all code above that performs `DataSource` injection.
+   * Fixed the compile errors in the `RewardsConfig` class.
+   * Noticed this reverts to the standard Spring way of building a DataSource.
+   * Disabled `DataSource` autoconfiguration to use our own `DataSource` bean by annotating the `@SpringBootApplication` with `exclude` attribute for `DataSourceAutoConfiguration.class`.
+   * Ran this application to observe it failed to start.
+   * Imported the `RewardsConfig` configuration to fix the error. 
+   * This import is required since the `RewardsConfig` configuration now provides `DataSource` bean and will not be auto-detected through component scanning because it is in a different package than the application. It must be in the same package or sub-packages with the application class.  
+   * Ran the application again and observed a successful execution.
+   * Technically you don't have to disable `DataSource` autoconfiguration given that Spring Boot will use application defined `DataSource` bean over autoconfigured one.
+   * Changed the logging level of `config` package to `DEBUG` in `application.properties`.
+   * Reran the `RewardNetworkTests` test to see that DataSourceAutoConfiguration being excluded in the debug logging message.
+
+6) Built and Ran Using Command Line Tools
+   * To see what the Spring Boot Maven/Gradle plugin is doing:
+     * From our `Terminal/Command` window, executed the `Maven package goal` (or `Gradle assemble task`) from the project root lab directory.
+       ```
+        mvnw clean package -pl *common -pl *jdbc-autoconfig -Dmaven.test.skip=true
+       or
+        gradlew :32-jdbc-autoconfig:clean :32-jdbc-autoconfig:assemble
+       
+    * In `32-jdbc-autoconfig`, a `target` directory (for Maven), or a `build/libs` directory (for Gradle) created. 
+      * There are two generated JAR files:
+        * `32-jdbc-autoconfig-5.3.23.jar` and
+        * `32-jdbc-autoconfig-5.3.23.jar.original` (for Maven) / `32-jdbc-autoconfig-5.3.23-original.jar` (for Gradle)
+      * The "original" is much smaller. The other JAR is executable and contains all the necessary dependencies (hence it is called a "fat"/uber JAR!)
+    * Extract the jar file to a temporary directory, and view the contents.
+    * We should see the jar is generated to be run as a standalone application on our behalf.
+        * We will see the classpath resources, manifest file and supporting compile scope package classes are included.
+        * Contains all the necessary runtime dependencies - `BOOT-INF` holds all your compiled classes and all the dependency jars. 
+        * In the `META-INF` directory `MANIFEST.MF` declares a main entry point (the Main-Class: property)
+    * There are many ways to run this application, either directly using the JAR, using `spring-boot:run` goal from Maven or in your IDE as we did earlier.
+        * Ran `java -jar 32-jdbc-autoconfig-5.3.23.jar`, got the same output as before.
