@@ -418,7 +418,7 @@ The most basic Spring Boot application really only requires the following three 
    * Open `pom.xml`(or `build.gradle`) and noted the dependencies and the parent reference.
    
      * 3 dependencies are defined:
-     ```xml
+```xml
       <dependencies>
        <dependency>
        <groupId>org.springframework.boot</groupId>
@@ -434,16 +434,16 @@ The most basic Spring Boot application really only requires the following three 
            <artifactId>spring-boot-starter-test</artifactId>
            <scope>test</scope>
        </dependency>
-   </dependencies>`
-
+   </dependencies>
+```
    * Parent reference:
-     ```xml
+```xml
      <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.3.2</version>             
      </parent>
-
+```
 3) Checked `JdbcBootApplication` class which is annotated with `@SpringBootApplication`. This annotation makes it behave as a Spring Boot application.
 4) Set the logging level to DEBUG by adding `logging.level.root=DEBUG` to the `src/main/resources/application.properties` file.
 5) Ran the `JdbcBootApplication` successfully and saw `CONDITIONS EVALUATION REPORT` which shows that a set of AutoConfiguration classes including `DataSourceAutoConfiguration` are executed.
@@ -463,10 +463,10 @@ This is how autoconfiguration works in a Spring Boot Application.
      * The SQL files were detected and invoked because Spring Boot automatically looks for and runs two files `schema.sql` and `data.sql` if it finds them on the classpath.
      * Alternatively, we could have placed those files anywhere in our project and named them anything we wanted. 
      * In that case, we would need to add the following entries to our `application.properties` file to tell our Spring Boot application where to find these files.
-       ```
+```
        spring.sql.init.schema-locations=<path to your schema SQL file>
        spring.sql.init.data-locations=<path to your data SQL file>
-       
+``` 
 8) Used `CommandLineRunner` Bean
    * The `run` method of `CommandLineRunner` bean gets executed when a Spring Boot application gets started.
    * Added a `CommandLineRunner` bean in the `JdbcBootApplication` class and used `JdbcTemplate` bean to retrieve number of accounts.
@@ -643,3 +643,108 @@ We will also need a Terminal or Command window to run Maven or Gradle manually.
         * In the `META-INF` directory `MANIFEST.MF` declares a main entry point (the Main-Class: property)
     * There are many ways to run this application, either directly using the JAR, using `spring-boot:run` goal from Maven or in your IDE as we did earlier.
         * Ran `java -jar 32-jdbc-autoconfig-5.3.23.jar`, got the same output as before.
+
+# MODULE 11 - Spring Boot - Spring Data JPA
+
+## Spring Boot - Spring Data JPA
+
+In this lab we will learn:
+* How to implement a `Spring JPA` application using Spring Boot.
+* How to create `Spring Data` repositories using `JPA`.
+
+Specific subjects we will gain experience with:
+* `Spring Data JPA`
+* `Hibernate ORM`
+
+### Use Case
+
+In this lab we will replace `Account` and `Restaurant` JDBC repositories with use of `Spring Data JPA`.
+The scope of the lab is not to refactor from JDBC. 
+This lab will include pre-annotated data entity classes, and empty repository references that we will implement JPA backing entities, 
+and accompanying repositories to demonstrate the ease of implementation.
+
+
+### Instructions
+
+1) Checked JPA dependencies for the project.
+   * Reviewed the dependency for the `Spring Boot Data JPA Starter` in the `pom.xml` (or `build.gradle`).
+   * Some of the major functionality of `Spring Boot Data JPA` starter:
+     * Repository interface
+       * `Spring Data Commons` gives functionality to declaratively define an interface for a repository without requiring an explicit implementation class.
+       *  Spring Data will implement the behavior via a Spring proxy.
+     * `JPA`
+     * `Hibernate`
+     * `JDBC`
+     * `Transactions`
+     * `AOP` 
+       * It uses aspects behind the scenes to wire transaction managers and other cross-cutting behavior to our Spring proxies.
+2) Given JPA includes JDBC by default.
+   * We may remove the JDBC Starter from our `pom.xml`(or `build.gradle`). 
+   * Or, we may leave it to explicitly declare the dependency given us will also use `JdbcTemplate` in our code.
+3) Implemented JPA for Account
+   * Reviewed the JPA annotations on the `Account` class to make sure what each does.
+     * `@Entity` - Marks this class as a JPA persistent class.
+     * `@Table` - Specifies the exact table name to use on the DB (would be "Account" if unspecified).
+     * `@Id` - Indicates the field to use as the primary key on the database.
+     * `@Column` - Identifies column-level customization, such as the exact name of the column on the table.
+     * No need for `@Column` for `NUMBER` and `NAME` columns. These fields will automatically be mapped using the same name.
+     * `@OneToMany` - Specifies a one-to-many relationship between two entities. This means that one `Account` can have many `Beneficiary` entities associated with it. 
+                      Identifies the field on the 'one' side of a one-to-many relationship, and it is placed the `Set<Beneficiary>` field.
+     * `@JoinColumn` - Identifies the column on the 'many' table containing the column to be used when joining.  Usually a foreign key.
+                       `ACCOUNT_ID` is the foreign key in `Beneficiary` table.
+   * **What might be a concern when annotating our domain classes with JPA behavior?**
+     * We are tying JPA and ORM to our domain entities.
+     * We are requiring JPA and ORM coupled with our runtime.
+     * In reasonably complex projects we may want to keep JPA coupled code independent of POJO domain objects, 
+       and use either `Proxies or Adapters` design patterns to decouple them.
+   * Implemented the `AccountRepository` to be a `Spring Data JPA Repository` Interface.
+     * Altered this interface to extend the `Repository<Account, Long>` interface.
+     * Refactored the finder method on this class to obey Spring Data conventions. 
+   * Reviewed the JPA annotations on the `Beneficiary` class to make sure what each does.
+     * `@AttributeOverride` - Tells JPA to use the `ALLOCATION_PERCENTAGE` column on `T_ACCOUNT_BENEFICIARY` to populate `Percentage.value` 
+        and `SAVINGS` column on `T_ACCOUNT_BENEFICIARY` to populate `MonetaryAmount.value`.
+4) Implemented JPA for `Restaurant`
+   * Mapped the `Restaurant` class using JPA annotations.
+     * Annotated the `Restaurant` class with `@Entity` to mark this class as a JPA persistent class.
+     * Annotated with `@Table` to specify the exact table name on the DB.
+     * Annotated with `@Id` to identify the primary key on the database.
+     * Annotated with `@Column` to identify the exact name of the columns on the table.
+     * Annotated with `@AttributeOverride` to use the `BENEFIT_PERCENTAGE` column on `T_RESTAURANT` to populate `Percentage.value`
+   * Implemented the `RestaurantRepository` to be a `Spring Data JPA Repository` Interface.
+     * Altered this interface to extend the `Repository<Restaurant, Long>` interface.
+     * Refactored the finder method on this class to obey Spring Data finder naming conventions so Spring Data will implement it automatically for us.
+     
+
+5) Configured for JPA
+
+If we are building a basic Spring JPA project, we would also need to configure our project to enable the use of JPA and Spring Data Repositories by performing the following tasks.
+    * Enable wiring of previously defined JPA annotations to an `ORM` backend through an `EntityManager`.
+    * Enable use of `Hibernate` as the ORM backend. Hibernate would be wired to the datasource that is autoconfigured.
+    * Enabled scanning for JPA repositories using the `@EnableJpaRepositories` annotation.
+    * Set up a `TransactionManager` and enable transactions with `@EnableTransactionManagement`.
+
+However, since this is a Spring Boot enabled test and Autoconfiguration is enabled, we will find that it is not necessary to do any of these. 
+This allows us to focus on configuring just the custom values needed to override default configurations.
+
+The previous steps cover a set of reasonable defaults for wiring together an application to use JPA and ORM.
+
+**But what if we want to override or extend behavior?**
+
+* Configured JPA in `src/test/resources/application.properties` as follows:
+  * Defined properties to make Spring Boot to run SQL scripts (`test-schema.sql` and `test-data.sql`) located under `rewards.testdb` directory. 
+```
+    spring.sql.init.schema-locations=/rewards/testdb/test-schema.sql
+    spring.sql.init.data-locations=/rewards/testdb/test-data.sql
+```
+  * Defined Spring Boot properties to make JPA show the SQL it is running nicely formatted.
+```
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+```
+
+  * Defined a Spring Boot property to prevent hibernate from auto-creating and auto-populating database tables, our scripts did it already. (Bypassed DDL execution on startup)
+```
+spring.jpa.hibernate.ddl-auto=none
+```
+
+6) Ran `RewardNetworkTests` to verify it succeeds. Reviewed the console carefully for hibernate execution of SQL statements formatted.
