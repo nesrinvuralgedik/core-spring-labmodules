@@ -2,7 +2,7 @@
 
 Labs for the Core Spring and Spring Boot courses
 
-To import these labs into your IDE, import the parent pom `lab/pom.xml` as Maven projects or `lab/build.gradle` as Gradle projects.
+To import these labs into our IDE, import the parent pom `lab/pom.xml` as Maven projects or `lab/build.gradle` as Gradle projects.
 
 # RewardNetwork Domain and API
 Reward Dining functions as a restaurant loyalty program. 
@@ -156,7 +156,7 @@ No Lab for this module.
 In this lab we will fulfill two non-functional requirements in the Rewards application by using Spring AOP.
 
 * **REQUIREMENT 1:** Create a simple logging aspect for repository find methods.
-* **REQUIREMENT 2:** Implement an `@Around` Advice which logs the time spent in each of your repository update methods.
+* **REQUIREMENT 2:** Implement an `@Around` Advice which logs the time spent in each of our repository update methods.
 
 
 1) Annotated the `rewards.internal.aspects.LoggingAspect` class with the `@Aspect` annotation. 
@@ -482,7 +482,7 @@ This is how autoconfiguration works in a Spring Boot Application.
        When the `spring-boot-starter-jdbc` dependency is included, Spring Boot scans the classpath for JDBC drivers and automatically configures a `DataSource` bean based on properties defined in the `application.properties` file.
        2) **Default Configuration:** If we do not provide a specific `DataSource` configuration in the `application.properties`, Spring Boot will use its default settings to create a `DataSource`. 
        This includes defaults for in-memory databases like `H2, HSQLDB, or Derby`.
-       3) **Property Configuration:** In a typical Spring Boot application, you would specify the database connection details in the `application.properties` file. 
+       3) **Property Configuration:** In a typical Spring Boot application, we would specify the database connection details in the `application.properties` file. 
        4) **Dependency Injection:** Once the `DataSource` bean is created and configured, Spring Boot injects it into the `JdbcTemplate`. 
        This is done automatically by Spring Boot's dependency injection mechanism. 
        The `JdbcTemplate` bean is created by Spring Boot and is injected wherever it is required (like in our `CommandLineRunner` bean in the `JdbcBootApplication` class).
@@ -597,7 +597,7 @@ We will also need a Terminal or Command window to run Maven or Gradle manually.
      * There is no need to specify any configuration classes, because `@SpringBootTest` will automatically component scan for any `@Component` (or `@Configuration`) classes in the current package or below.
      * Since the `SystemTestConfig` class is in the same package, it will be discovered and processed. This includes processing the `@Import` annotation that references the `RewardsConfig` class containing all the other bean definitions.
      * This is considered an End-To-End integration test, including the wired components.
-     * Note that in a real production application you are most likely to configure an external database. Spring Boot offers properties to do this.
+     * Note that in a real production application we are most likely to configure an external database. Spring Boot offers properties to do this.
      * Ran the `RewardNetworkTests`, it passed now.
      
 4) Override Auto-Configuration
@@ -619,7 +619,7 @@ We will also need a Terminal or Command window to run Maven or Gradle manually.
    * Imported the `RewardsConfig` configuration to fix the error. 
    * This import is required since the `RewardsConfig` configuration now provides `DataSource` bean and will not be auto-detected through component scanning because it is in a different package than the application. It must be in the same package or sub-packages with the application class.  
    * Ran the application again and observed a successful execution.
-   * Technically you don't have to disable `DataSource` autoconfiguration given that Spring Boot will use application defined `DataSource` bean over autoconfigured one.
+   * Technically we don't have to disable `DataSource` autoconfiguration given that Spring Boot will use application defined `DataSource` bean over autoconfigured one.
    * Changed the logging level of `config` package to `DEBUG` in `application.properties`.
    * Reran the `RewardNetworkTests` test to see that DataSourceAutoConfiguration being excluded in the debug logging message.
 
@@ -639,14 +639,14 @@ We will also need a Terminal or Command window to run Maven or Gradle manually.
     * Extract the jar file to a temporary directory, and view the contents.
     * We should see the jar is generated to be run as a standalone application on our behalf.
         * We will see the classpath resources, manifest file and supporting compile scope package classes are included.
-        * Contains all the necessary runtime dependencies - `BOOT-INF` holds all your compiled classes and all the dependency jars. 
+        * Contains all the necessary runtime dependencies - `BOOT-INF` holds all our compiled classes and all the dependency jars. 
         * In the `META-INF` directory `MANIFEST.MF` declares a main entry point (the Main-Class: property)
-    * There are many ways to run this application, either directly using the JAR, using `spring-boot:run` goal from Maven or in your IDE as we did earlier.
+    * There are many ways to run this application, either directly using the JAR, using `spring-boot:run` goal from Maven or in our IDE as we did earlier.
         * Ran `java -jar 32-jdbc-autoconfig-5.3.23.jar`, got the same output as before.
 
-# MODULE 11 - Spring Boot - Spring Data JPA
+# MODULE 12 - Spring Boot - Spring Data JPA
 
-## Spring Boot - Spring Data JPA
+## Spring Boot - Spring Data JPA Lab
 
 In this lab we will learn:
 * How to implement a `Spring JPA` application using Spring Boot.
@@ -748,3 +748,78 @@ spring.jpa.hibernate.ddl-auto=none
 ```
 
 6) Ran `RewardNetworkTests` to verify it succeeds. Reviewed the console carefully for hibernate execution of SQL statements formatted.
+
+# MODULE 13 - Web Application with Spring Boot
+
+## Web Application with Spring Boot Lab
+
+In this lab we will implement a `Spring MVC REST Controller` to fetch account information and return results to the user.
+
+What we will learn:
+* How to set up required `Spring MVC` infrastructure with `Spring Boot`
+* How to expose `Controllers` as endpoints mapped to web application URLs by creating `Spring MVC REST Controller`
+* Implementing handlers that handle `HTTP GET` request
+* Using proper annotation for extracting value from the URL
+* Exercising Spring Dev Tools
+* Changing a port number of a Web application using `server.port` property
+* Writing assertions in the test code
+
+Specific subjects we will gain experience with:
+* `Spring Boot for Web`
+* `@RestController`
+
+### Use Case
+
+For this and subsequent labs we have added account management functionality to the Rewards application.
+An `AccountManager` service-layer class has been added for fetching account details. Later we will extend it to support updating accounts.
+
+### Instructions
+
+1) Checked the Project is working.
+   * Opened `pom.xml` (or `build.gradle`) to check the dependencies we are using. There are Spring Boot starters for:
+        * `Web` - This will allow Spring Boot set up the full Spring MVC environment for our new controller to use.
+        * `Devtools` - Enables automatic restart of the application whenever we change a Java file or resource.
+        * `JPA` - For convenience the `AccountManager` is implemented using `JPA` to access the account table in the database.
+        * `Mustache` - The home page is a minimal web-page just to show the application is working, implemented using server-side rendering and `Mustache templates`. 
+    * Ran the application as a Spring Boot or Java application.
+       * Once it is running accessed the home page: http://localhost:8080 in our browser.
+       * Clicked "List accounts as JSON" link in the homepage and note that it returns 404 - Not Found. 
+       * Because it's not implemented yet.
+2) Implemented a REST Controller
+   * Added `@RestController` annotation to make `AccountController` class a REST controller. So, Spring MVC knows it is a controller for handling REST requests.
+     * `@RestController` annotation is internally annotated with `@Controller` and `@ResponseBody`. 
+     * `@ResponseBody` is used to indicate that the return value of a controller method should be written directly to the HTTP response body.  
+     * Note that the `AccountManager` is already available - it will be injected by Spring when the controller is instantiated.
+   * Added `@GetMapping("/accounts")` annotation to make the `accountList` method RESTful and handle `"/accounts"` endpoint.
+   * Implemented the `accountsList` method to find and return all accounts.
+     * Used "accountManger" object to get all accounts and return them from the method.
+     * Recompile this class if necessary, and wait for the application to restart (Spring Boot Devtools causes the restart automatically)
+     * Returned to the home-page in my browser and clicked on the "List accounts in JSON" link and saw the accounts in JSON format all is well.
+     * We can also use `curl` or `Postman` to make a `GET` request to http://localhost:8080/accounts.
+     * You might find it useful to add JSON pretty-print capability to your browser.
+   * Unit tested the `AccountController` in `AccountControllerTests` class.
+     * The test class uses a `StubAccountManager` managing a single test Account.
+     * We're not going to make any HTTP request. We're just testing the controller in isolation.
+     * In the setUp method, we're going to create a new AccountController and pass a Stub implementation of Account Manager.
+     * StubAccountManager is basically adding a single account into an internal map.
+     * Removed `@Disabled` annotation and ran the test to see it passes.
+     * We should have tested the Controller before running the application, but as the application was already running we exercised it first. This is not normal development practice - always run tests first!
+3) Implemented the `"/accounts/{entityId}"` request handling method to fetch an individual Account.
+   * Added a new Controller method `accountDetails` to fetch just a single account by its entity id in `AccountController` class.
+   * Annotated with `@GetMapping` to define URL mapping for `"/accounts/{entityId}"`
+   * Defined a method parameter to obtain the URI template parameter needed to retrieve an account by using `@PathVariable("entityId")` annotation.
+   * Used `accountManager.getAccount(entityId)` to obtain an account.
+   * Added a new test code which calls the `accountDetails()` method on the controller.
+     * Added code to `testHandleDetailsRequest()` to invoke the new method on the controller.
+     * Verified the results by defining some assertions such as null check, matching checks:
+     * Removed the `@Disabled` annotation, ran the test, it passed.
+   * Reran the application as a Java or Spring Boot application.
+     * Using your Browser, Postman or curl try the following URLs:
+        * http://localhost:8080/accounts/0
+        * http://localhost:8080/accounts/1
+4) Made this server listen on port 8088.
+   * Set the Spring Boot property to make the server listen on port 8088 in `application.properties`.
+     ```
+     server.port=8088
+     ```
+   * Once the server restarted, accessed to http://localhost:8088.
