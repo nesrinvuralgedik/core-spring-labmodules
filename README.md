@@ -823,3 +823,123 @@ An `AccountManager` service-layer class has been added for fetching account deta
      server.port=8088
      ```
    * Once the server restarted, accessed to http://localhost:8088.
+
+# MODULE 14 - RESTful Application with Spring Boot
+
+## RESTful Application with Spring Boot Lab
+
+What we will learn:
+* Working with `RESTful URLs` that expose resources
+* Mapping request and response bodies using `HTTP message converters`
+* Use `Spring MVC` to implement server-side `REST`
+* Writing a programmatic HTTP client to consume `RESTful web services`
+
+Specific subjects we will gain experience with:
+* Processing URI Templates using `@PathVariable`
+* Using `@RequestBody` and `@ResponseBody`
+* Using the `RestTemplate`
+
+### Use Case
+
+* With the emergence of the Single Page Application (SPA) architecture and with the need to support diverse set of client types including mobile devices, more and more back-end applications are developed and deployed as RESTful web services. 
+Spring makes building RESTful web services very easy with a rich set of annotations.
+
+* In the prior MVC lab, we implemented a few RESTful endpoints for obtaining a list of accounts and details for a specific account. 
+* In this lab, we will complete the implementation of the `AccountController` 
+by adding RESTful methods to create a new account, add a beneficiary to an account and delete an account.
+
+### Instructions
+
+1) Exposing Accounts and Beneficiaries As RESTful Resources using Spring’s URI template support, HTTP Message Converters and RestTemplate
+
+   * Inspected the Current Application in `RestWsApplication` class in the accounts package.
+     * Checked to see how the application is bootstrapped: 
+       * It imports the `AppConfig` configuration class, which contains an `accountManager` bean that provides transactional data access operations to manage Account instances.
+       * As `RestWsApplication` uses the `@SpringBootApplication` annotation, it will use component scanning and will define a bean for the `AccountController` class.
+     * `AccountClientTests` JUnit test case under the `src/test/java` source folder is to interact with the running RESTful web services on the server.
+     * Ran the Spring Boot application in `RestWsApplication` class and verified that the application deployed successfully by accessing the home page from a browser.
+
+   * Reviewed implementation for getting a list of accounts (`accountSummary` method in `AccountController` class)
+     * Noted the URI and the HTTP verb used to perform this action, also what is being returned.
+     * Received a response using a `JSON` representation (`JavaScript Object Notation`).
+     * The reason is that the project includes the `Jackson` library on its classpath.
+     * So, an `HTTP Message Converter` that uses Jackson will be active by default.
+    
+   * Retrieved the List of Accounts Using a RestTemplate to test the `accountSummary()` REST endpoint.
+     * A client can process this JSON response anyway it sees fit.
+     * In our case, we’ll rely on the same HTTP Message Converter to deserialize the JSON contents back into Account objects.
+     * In `AccountClientTests` class:
+       * This class uses a plain `RestTemplate` to connect to the server.
+       * Removed the `@Disabled` on `listAccounts()` test method.
+       * Used the `restTemplate.getForObject` to retrieve an array containing all Account instances from the server by using `BASE_URL` variable.
+       * We cannot assign to a `List<Account>` here, since `Jackson` won’t be able to determine the generic type to deserialize, therefore we use an `Account[]` instead.
+       * Ran the test to see it passes.
+        
+   * Reviewed the REST endpoint for the `accountDetails()` method in `AccountController` class
+     * Noted the URI and the HTTP verb used to perform this action, also what is being returned.
+     * Tested the code by accessing account 0 from our browser to verify the result.
+     * Received a single Account in JSON format.
+
+   * Retrieved the Account with id 0 using a URI Template to test the `accountDetails()` REST endpoint.
+     * In `AccountClientTests` class:
+         * Removed the `@Disabled` on `getAccount()` test method.
+         * The RestTemplate also supports URI templates with variables, so use urlVariables varargs parameter.
+         * Used the `restTemplate.getForObject` to retrieve an Account from the server by using `BASE_URL` variable.
+         * Ran the test to see it passes.
+
+2) Created a new Account Using POST
+   * Made a REST endpoint from `createAccount` method in the `AccountController` class.
+   * Updated the `createAccount` method by adding a `@PostMapping` to `"/accounts"`. 
+   * The body of the POST will contain a JSON representation of an Account.
+   * Annotated the account parameter with `@RequestBody` to let the request’s body be un-marshaled into an Account object.
+   * When the method completes successfully, the client will receive a `201 Created` instead of `200 OK` 
+
+3) Added Location response header on a Response to URI of the newly created resource and returned it.
+   * RESTful clients that receive a `201 Created` response will expect a Location response header in the response containing the URL of the newly created resource.
+   * Used `ServletUriComponentsBuilder` to generate the full URL without hard-coding the server name and servlet mapping in `entityWithLocation()` method.
+   * Used `ResponseEntity.created(..)` to generate the response. 
+
+4) Tested the `createAccount` REST endpoint
+   * Removed the `@Disabled` on this test method.
+   * Created a new Account by POSTing to the "/accounts" URL and stored its location in a variable.
+   * Used `restTemplate.postForLocation` method that returns the location of the newly created resource
+   * Retrieved the new account on the given location. The returned Account will be equal to the one we POSTed, but will also have been given an `entityId` when it was saved to the database.
+   * Ran this test to see it passes.
+
+5) Made a REST endpoint from `addBeneficiary` method by adding a Beneficiary with the given Account id, setting its URL as the Location header on the response.
+   * Completed the `addBeneficiary` method in the `AccountController`.
+   * Added `@PostMapping` annotation to `/accounts/{accountId}/beneficiaries` to respond to a POST.
+   * Used `@PathVariable`, a URI template to parse the `accountId`.
+   * Extracted a beneficiary name from the incoming request by annotating `@RequestBody`. 
+   * The request’s body will only contain the name of the beneficiary. An HTTP Message Converter will convert this to a String.
+   * Used `accountManager`'s `addBeneficiary` method to add a beneficiary to an account.
+   * Create a `ResponseEntity` containing the location of the newly created beneficiary by using `entityWithLocation()` method again.
+   * Returned a `201 Created` status.
+
+6) Made a REST endpoint from `removeBeneficiary` method to remove the Beneficiary with the given name from the Account.
+   * Added `@DeleteMapping` annotation to respond to a DELETE to `/accounts/{accountId}/beneficiaries/{beneficiaryName}`
+   * Used two `@PathVariable` to parse the `accountId` and `beneficiaryName`.
+   * Completed the `removeBeneficiary` method and this time, returned a `204 No Content status`.
+   
+7) Tested the REST endpoints for `addBeneficiary` in `AccountClientTests` class.
+   * Removed the `@Disabled` on `addAndDeleteBeneficiary` test method.  
+   * Created a new `Beneficiary` called "David" for the account with id 1. 
+   * Posted the String "David" to the "/accounts/{accountId}/beneficiaries" URL.
+   * Stored the returned location URI in a variable.
+   * Deleted the newly created `Beneficiary` by using `restTemplate.delete(uri)`.
+   * Tried to retrieve the newly created Beneficiary again.
+   * Ran the test, it passed because we got a 404 Not Found exception.
+
+8) Added an exception handler for `409 Conflict`
+   * The current test ensures that we always create a new account using a unique number. 
+   * Edited the `createAccount` method in the `AccountClientTests` test class to use a fixed account number, like "123123123".
+   * Ran the test: the first time it succeeded.
+   * Ran the test again: this time it failed.
+   * The server returned a `500 Internal Server Error`.
+   * What caused this: a `DataIntegrityViolationException`, ultimately caused by a `ConstraintViolationException` indicating that the account number is violating a unique constraint.
+   * This is not really a server error: this is caused by the client providing conflicting data when attempting to create a new account.
+   * To properly indicate that to the client, we should return a `409 Conflict` rather than the `500 Internal Server Error` that's returned by default for uncaught exceptions.
+   * To enable this, added a new exception handling method that returns the correct code in case of a `DataIntegrityViolationException`. 
+   * Added `handleAlreadyExists` method in the `AccountConroller` class.
+     * Annotated with `@ExceptionHandler` and `@ResponseStatus` to map `DataIntegrityViolationException` to `409 Conflict`.
+   * Ran the test twice again, and we now received the correct status code.
