@@ -943,3 +943,138 @@ by adding RESTful methods to create a new account, add a beneficiary to an accou
    * Added `handleAlreadyExists` method in the `AccountConroller` class.
      * Annotated with `@ExceptionHandler` and `@ResponseStatus` to map `DataIntegrityViolationException` to `409 Conflict`.
    * Ran the test twice again, and we now received the correct status code.
+
+# MODULE 15 - Spring Boot Testing
+
+## Spring Boot Testing Lab
+
+We will learn how to:
+* Enable Spring Boot Testing
+* Perform integration testing without having to manually run our application
+* Perform Web slice testing using mocking
+
+### Instructions
+
+1) **Added Spring Boot Testing Starter**
+
+`pom.xml` (or `build.gradle`) of the parent project already has `spring-boot-starter-test`. 
+The starter adds several libraries including `Mockito framework`.
+
+2) **Performed Integration Testing**
+
+   a) **Ran Integration Testing Without Using Spring Boot Testing**
+      - Without the use of Spring Boot Testing, we will have to start our application manually before running integration tests. 
+      - Stopped any application that is running on port 8080.
+      - Ran existing tests in the `AccountClientTests` and observed that they fail. 
+      - Started the application in the `BootTestApplication` class. 
+      - Reran the tests and observed that they now pass.
+      - Stopped the application since we will not need a manually started application.
+
+   b) **Ran Integration Testing Using Spring Boot Testing**
+      - Refactored `AccountClientTests` to use Spring Boot Testing.
+      - Made `AccountClientTests` class a Spring Boot test class by annotating `@SpringBootTest` with `WebEnvironment.RANDOM_PORT` attribute. 
+      - We're choosing random port to start the embedded servlet container which is Tomcat by default.
+      - Autowired `TestRestTemplate` bean to a private field as `restTemplate`. It's a component that will be configured and injected by Spring Boot.
+
+   c) **Updated code to use TestRestTemplate**
+      - Remove `RestTemplate` from `AccountClientTests` class since it is no longer needed.
+      - Changed the value of `BASE_URL` to "" since `TestRestTemplate` will use relative path.
+      - Ran the tests and observed that they pass except `addAndDeleteBeneficiary` test.
+
+   d) Modified the `addAndDeleteBeneficiary()` method so that it handles 404 HTTP response status from the server (instead of handling it as an exception as in the case of `RestTemplate`)
+      - TestRestTemplate is, by design, fault-tolerant. This means that it does not throw exceptions when an error response (400 or greater) is received.
+      - This makes it easier to test error scenarios as, rather than having to catch an exception, you can simply assert that the response's status code is as expected for the scenario in question.
+      - Removed the `assertThrows` statement (since we are not going to check if an exception is thrown)
+      - Used `getForEntity` method (instead of `getForObject` method) of `TestRestTemplate`
+      - Verified that the HTTP response status is 404
+      - Ran all tests and they all passed.
+      - Observed, in the console log, that Spring Boot Testing framework started an embedded Tomcat server on a random port.
+
+3) **Performed Web Slice Testing**
+
+    a) Got ourselves familiarized with various testing utility classes
+   
+    ```java
+    import static org.mockito.BDDMockito.*;
+    import static org.mockito.Mockito.verify;
+    import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+    import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+    ```
+     b) To test Spring MVC Controllers, we can use `@WebMvcTest` which autoconfigures the Spring MVC infrastructure (and nothing else) for the web slice tests.
+        - Note that the Web slice testing runs faster than an integration testing since it does not need to start a server.
+        - In order to do this part of the lab, we need to know how to use the following API's:
+          
+          * `BDDMockito`: given(..), willReturn(..), willThrow(..)
+          * `MockMvc`: perform(..)
+          * `ResultActions`: andExpect(..)
+          * `MockMvcRequestBuilders`: get(..), post(..), put(..), delete(..)
+          * `MockMvcResultMatchers`: status(), content(), jsonPath(..), header()
+
+    c) Wrote slice test code for the controller with `@WebMvcTest`
+        - Replaced `@ExtendWith(SpringExtension.class)` with `@WebMvcTest(AccountController.class)` in `AccountControllerBootTests` testing class under `accounts.web` package in `src/test/java`.
+        - `@WebMvcTest` includes `@ExtendWith(SpringExtension.class)` and autoconfigures `MockMvc` bean.
+        - Autowired `MockMvc` bean in `AccountControllerBootTests` class. 
+        - Now that we have just the web layer, we will use `MockMvc` component to simulate HTTP requests to our controller endpoints as if they were handling real HTTP requests from a client.
+        - Created `AccountManager` mock bean using `@MockBean` annotation.
+
+4) **Wrote Test for GET Request for an Account**
+    
+    a) Wrote positive test for GET request for an account - test for getting account detail for a valid account with `arrange/act and assert/verify` structure as shown below.
+    
+   ```java
+    @Test
+    public void testAccountDetails() throws Exception {
+    
+        // arrange
+        given(..).willReturn(..);
+    
+        // act and assert
+        mockMvc.perform(get("/URL-TO-FETCH"))
+               .andExpect(..);
+    
+        // verify
+        verify(..).getAccount(0L);
+    
+    } 
+   ```
+     
+     - The testing should verify the following: 
+        * The returned Http status is 200
+        * The returned content type is JSON (MediaType.APPLICATION_JSON)
+        * The returned data contains correct name and number of an account
+        * Make sure you are using the correct imports for @Test and jsonPath
+
+   b) Wrote negative test for GET request for a non-existent account -
+      - The testing should verify the following:
+        * The returned Http status is 404
+
+   c) Ran the tests to verify they pass.
+
+5) Wrote Test for POST Request for Account - 
+
+   a) Test for creating a new account. The testing should verify the following:
+       * The returned Http status is 201.
+       * The Location header should contain the URI of the newly created Account.
+       * For converting an Account to JSON string, add and use the method asJsonString.
+
+   b) Ran the test to verify it passes.
+
+6) Experiment With `@MockBean` vs `@Mock`
+  
+  a) Changed `@MockBean` to `@Mock` for the `AccountManager` dependency.
+  b) Ran the test to see the test fails.
+  c) Because even if we have a mock for accountManager, it's not going to be in the application context.
+     Whenever we create the account controller, there won't be any account manager to be injected.
+     It's just going to be available inside our test.
+
+7) Tested Get All Accounts
+
+   a) Added another MockMvc test (`getAllAccounts()`) for getting all accounts. The test verified the following:
+      * The returned Http status is 200.
+      * The returned content type is JSON (MediaType.APPLICATION_JSON).
+      * The returned data contains the correct name, number.
+      * And contains the correct number of accounts (at least 21 - maybe more due to the POST test creating new accounts)
+
+
+
+

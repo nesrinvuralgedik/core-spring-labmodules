@@ -2,17 +2,18 @@ package accounts.client;
 
 import common.money.Percentage;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.http.ResponseEntity;
 import rewards.internal.account.Account;
 import rewards.internal.account.Beneficiary;
 
 import java.net.URI;
 import java.util.Random;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 // TODO-00: In this lab, you are going to exercise the following:
 // - Using @SpringBootTest and webEnvironment for end-to-end testing
@@ -27,10 +28,13 @@ import static org.junit.jupiter.api.Assertions.*;
 // TODO-01: Make this class a Spring Boot test class
 // - Add @SpringBootTest annotation with WebEnvironment.RANDOM_PORT
 
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class AccountClientTests {
 
 	// TODO-02: Autowire TestRestTemplate bean to a field
 	// - Name the field as restTemplate
+	@Autowired
+	private TestRestTemplate restTemplate;
 
 	// TODO-03: Update code below to use TestRestTemplate (as opposed to RestTemplate)
 	// - Remove RestTemplate from this code
@@ -44,9 +48,8 @@ public class AccountClientTests {
 	 * server URL ending with the servlet mapping on which the application can be
 	 * reached.
 	 */
-	private static final String BASE_URL = "http://localhost:8080";
+	private static final String BASE_URL = "";
 
-	private RestTemplate restTemplate = new RestTemplate();
 	private Random random = new Random();
 
 	@Test
@@ -108,11 +111,9 @@ public class AccountClientTests {
 
 		restTemplate.delete(newBeneficiaryLocation);
 
-		HttpClientErrorException httpClientErrorException = assertThrows(HttpClientErrorException.class, () -> {
-			System.out.println("You SHOULD get the exception \"No such beneficiary with name 'David'\" in the server.");
-			restTemplate.getForObject(newBeneficiaryLocation, Beneficiary.class);
-		});
-		assertThat(httpClientErrorException.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+		ResponseEntity<Beneficiary> response = restTemplate.getForEntity(newBeneficiaryLocation, Beneficiary.class);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
 	}
 
 	// TODO-05: Observe a log message in the console indicating
