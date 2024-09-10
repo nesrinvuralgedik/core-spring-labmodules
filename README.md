@@ -1075,6 +1075,235 @@ The starter adds several libraries including `Mockito framework`.
       * The returned data contains the correct name, number.
       * And contains the correct number of accounts (at least 21 - maybe more due to the POST test creating new accounts)
 
+# MODULE 16 - Securing REST Application with Spring Security
+
+## Securing REST Application with Spring Security Lab
+
+We will learn how to:
+* How to implement authentication
+* How to restrict access to URLs and/or HTTP methods
+* How to test secured application
+
+Specific subjects we will gain experience with:
+* Spring Security and the `SecurityFilterChain`
+* Built-in and custom `UserDetailsService`
+* Security test annotations such as `@WithMockUser` and `@WithUserDetails`
+
+### Instructions
+
+The `RestWsApplication` we built in the previous lab is not secured. We are going to secure it through authentication and authorization.
+
+1) **Explored Default Behaviour of Spring Boot Security** 
+
+    a) Verified the presence of Spring security dependencies in the `pom.xml` for Maven (or `build.gradle` for Gradle).
+       When Spring Boot sees `spring-boot-starter-security` on the classpath, it will set up default authentication and authorization - 
+       it will set up a single user and all endpoints are secured.
+       The `spring-security-test` dependency provides testing support.
+
+    b) Observed the default security behaviour of the Spring Boot application using a browser.
+
+    - Spring Boot application relies on Spring Security’s content-negotiation strategy to determine whether to use Basic authentication or Form-based authentication.
+    - When we are using a browser, Spring Boot application will use **Form-based authentication**. 
+    - Run this application.
+    - Using Chrome Incognito browser, access http://localhost:8080/accounts and observe that a login page gets displayed.
+    - Enter `user` in the Username field and Spring Boot generated password into the Password field and verify that the accounts get displayed.
+    - Access http://localhost:8080/logout and click Log out button.
+   
+    c) Observed the default security behaviour of the Spring Boot application using `curl` command (or `Postman`).
+
+    - When we are sending a REST request using `curl` command, Spring Boot application will use **Basic authentication**.
+    - When we are sending a REST request without valid username/password pair, the application will respond with "401 Unauthorized".
+    - Open a terminal window (if you are using "curl")
+
+        Run `"curl -i localhost:8080/accounts"` and observe 401 Unauthorized response
+
+        Run `"curl -i -u user: localhost:8080/accounts"` and observe a successful response
+
+2) **Enabled Web Security**
+
+    a) Spring Boot's default setup is deliberately minimal. It is not intended for production. Instead, we should configure our own security rules.
+
+    b) Imported security configuration class.
+
+    - The `RestSecurityConfig` class, which is located under `config` package, needs to be explicitly imported since it will not be found through component-scanning from the accounts package.
+    - So, we should use `@Import(RestSecurityConfig.class)` annotation in `RestWsApplication` class.
 
 
+3) **Configured Authentication and Authorization**
+Since Web security is enabled, we are ready to configure authentication and authorization.
 
+    a) Configured authorization using `requestMatchers` method.
+
+    - The most common form of authorization (access control) is through the usage of roles.
+    - We are going define 3 roles - `USER`, `ADMIN`, and `SUPERADMIN` with the following access control rules:
+      - Allow DELETE on the /accounts resource (or any sub-resource) for "SUPERADMIN" role only
+      - Allow POST or PUT on the /accounts resource (or any sub-resource) for "ADMIN" or "SUPERADMIN" role only
+      - Allow GET on the /accounts resource (or any sub-resource) for all roles - "USER", "ADMIN", "SUPERADMIN"
+      - Allow GET on the /authorities resource for all roles - "USER", "ADMIN", "SUPERADMIN"
+      - Deny any request that doesn't match any authorization rule
+    - Added the following code to the `filterChain` method in `RestSecurityConfig` class.
+      ```java
+      http.authorizeHttpRequests((authz) -> authz
+      .requestMatchers(HttpMethod.DELETE, "/accounts/**").hasRole("SUPERADMIN")
+      .requestMatchers(HttpMethod.POST, "/accounts/**").hasAnyRole("ADMIN", "SUPERADMIN")
+      .requestMatchers(HttpMethod.PUT, "/accounts/**").hasAnyRole("ADMIN", "SUPERADMIN")
+      .requestMatchers(HttpMethod.GET, "/accounts/**").hasAnyRole("USER", "ADMIN", "SUPERADMIN")
+      .requestMatchers(HttpMethod.GET, "/authorities").hasAnyRole("USER", "ADMIN", "SUPERADMIN")
+      .anyRequest().denyAll())
+       ```
+
+    b) Configured authentication using in-memory storage.
+    
+    - We are going to set up in-memory `UserDetailsService` and define three users with a corresponding set of roles assigned.
+
+        - "user"/"user" with "USER" role
+        - "admin"/"admin" with "USER" and "ADMIN" roles
+        - "superadmin"/"superadmin" with "USER", "ADMIN", and "SUPERADMIN" roles
+
+   - Made sure to store the password in encoded form.
+   - Passed all users in the `InMemoryUserDetailsManager` constructor.
+   - Added the following code to the `userDetailsService` method in `RestSecurityConfig` class.
+
+    ```java
+    UserDetails user = User.withUsername("user").password(passwordEncoder.encode("user")).roles("USER").build();
+    UserDetails admin = User.withUsername("admin").password(passwordEncoder.encode("admin")).roles("USER", "ADMIN").build();
+    UserDetails superadmin = User.withUsername("superadmin").password(passwordEncoder.encode("superadmin")).roles("USER", "ADMIN", "SUPERADMIN").build();
+    
+    return new InMemoryUserDetailsManager(user, admin, superadmin);
+    ```
+
+    c) Performed security testing against MVC layer.
+
+    - We are going to test if the security configuration works against MVC layer using `@WebMvcTest` and `@WithMockUser` annotations.
+    - In the `AccountControllerTests` test class, the tests cover the following scenarios:
+
+        - Using an `invalid` user credential to perform any operation should result in `401 Unauthorized` response.
+        - Using `USER` role, we can only perform read operation.
+        - Using `ADMI`N role, we can perform create/update operation.
+        - Using `SUPERADMIN` role, we can perform delete operation.
+
+    d) Wrote a test that verifies that a user with `USER` role is not permitted to perform a `POST` operation. (`createAccount_with_USER_role_should_return_403`)
+
+    e) Performed security testing against a running server.
+
+    - We are going to test if the security configuration works using end-to-end testing against the application running over the embedded server.
+    - The tests cover the similar set of scenarios mentioned above in the `AccountClientTests` test class.
+    - Wrote a test that verifies that "user"/"user" is not permitted to create a new Account by using ResponseEntity.
+
+4) **Retrieved Authorities (Roles) for the Logged-In User**
+
+    a) Once authentication is successful, security context is being maintained in the `ThreadLocal` during the processing of a request.
+
+    b) This allows any method in the call stack in the same thread of execution can access the security context even if the security context is not explicitly passed around as an argument to those methods.
+
+    c) Using a `ThreadLocal` in this way is quite safe if care is taken to clear the thread after the present principal’s request is processed. 
+       Of course, Spring Security takes care of this for you automatically so there is no need to worry about it.
+
+    d) We are going to access the security context via `SecurityContextHolder` class.
+
+    e) In the `AccountService` class, used the `SecurityContextHolder` to get Security context, which in turn can be used to `getAuthentication` object, which is then used to `getAuthorities`.
+
+    ```java
+    Collection<? extends GrantedAuthority> grantedAuthorities 
+    = SecurityContextHolder.getContext()
+    .getAuthentication()
+    .getAuthorities();
+    ```
+
+     f) Restart the application (or let Spring Boot Devtools to restart the app).
+        
+     g) Using Chrome Incognito browser or "curl", access http://localhost:8080/authorities?username=<username> to verify that roles of the logged-in user get displayed.
+
+5) **Implemented Method Security**
+
+    a) Added method security annotation to a method so that the method will be invoked only when both of the following conditions are met:
+        - The logged-in user belongs to `ADMIN` role.
+        - The value of the username request parameter of the request URL matches the value of the principal's username or authentication's name. 
+          This condition can be specified using SpEL (Spring Expression language).
+
+        ```java
+        @PreAuthorize("hasRole('ADMIN') && #username == principal.username")
+        ```
+        or
+        
+        ```java
+        @PreAuthorize("hasRole('ADMIN') && #username == authentication.name")
+        ```
+
+    b) Enabled method security by adding `@EnableMethodSecurity` annotation in `RestSecurityConfig` class.
+       The `prePostEnabled` attribute is set to true by default, this allows the usage of the `@PreAuthorize` annotation.
+
+    c) Tested the method security using a browser or curl.
+ 
+      - Re-ran this application.
+      - Using Chrome Incognito browser, 
+            - Access http://localhost:8080/authorities?username=user, Enter "user"/"user" and verify that 403 failure occurs
+            - If you want to use "curl", use
+               curl -i -u user:user http://localhost:8080/authorities?username=user
+      - Close the Chrome Incognito browser and start a new one,
+          - Access http://localhost:8080/authorities?username=admin, Enter "admin"/"admin" and verify that the roles are displayed successfully
+          - If you want to use "curl", use
+            curl -i -u admin:admin http://localhost:8080/authorities?username=admin
+
+      - Close the Chrome Incognito browser and start a new one,
+          - Access http://localhost:8080/authorities?username=superadmin
+          - Enter "superadmin"/"superadmin" and verify that the roles are displayed successfully
+          - If you want to use "curl", use
+            curl -i -u superadmin:superadmin http://localhost:8080/authorities?username=superadmin
+
+    d) Performed method security testing with a running server in `AccountServiceMethodSecurityTest` class.
+
+    e) Wrote a test that verifies that getting authorities using http://localhost:8080/authorities?username=superadmin with superadmin/superadmin credential should return three roles ROLE_SUPERADMIN, ROLE_ADMIN, and ROLE_USER in `AccountServiceMethodSecurityTest` class.
+
+6) **Created Custom UserDetailsService**
+
+    a) In the `CustomUserDetailsServic`e class, it needs to implement `loadUserByUsername` method of the `UserDetailsService` interface.
+       We would use some kind of persistence storage for maintaining user data but in this lab, for simplicity, we are going to just return hard-coded UserDetails object given a username.
+       The custom UserDetailsService maintains UserDetails of two users:
+         
+      - mary/mary with USER role and
+      - joe/joe with USER and ADMIN role
+
+    b) Added authentication based upon the custom `UserDetailsService`. Annotated the `CustomUserDetailsService` class with `@Component` to make it a Spring managed bean.
+       Spring Boot will automatically discover it, and it will be used as the `UserDetailsService`.
+
+    c) Removed the `InMemoryUserDetailsManager` definition in `RestSecurityConfig` class by commenting the `@Bean` annotation.
+
+    d) Verified that the newly added custom `UserDetailsService` works.
+
+    - Re-ran this application.
+    - Since the custom `UserDetailsService` maintains `UserDetails` on two users, mary/mary and joe/joe, we can now verify that we can access a secured resource using the identity of one of these two users.
+        - Using Chrome Incognito browser, 
+          - Access http://localhost:8080/accounts/0
+          - Enter "mary"/"mary" and verify accounts data gets displayed
+        - If you want to use "curl", use
+            curl -i -u mary:mary http://localhost:8080/accounts/0
+        - Close the Chrome Incognito browser and start a new one.
+        - Using Chrome Incognito browser, 
+          - Access http://localhost:8080/accounts/0
+          - Enter "joe"/"joe" and verify accounts data gets displayed
+        - If you want to use "curl", use
+            curl -i -u joe:joe http://localhost:8080/accounts/0
+
+    e) Performed security testing for the two users added through custom `UserDetailsService` in `AccountControllerCustomUserDetailsServiceTests` class.
+
+7) **Created custom AuthenticationProvider**
+
+    a) Created custom AuthenticationProvider by implementing `AuthenticationProvider` interface in `CustomAuthenticationProvider` class.
+       Typically, we will use a custom authentication system for the verification of the passed identity.
+       In this lab, we are just faking it so that it handles a user with the following identity.
+         - spring/spring with ROLE_ADMIN role
+
+    b) Added authentication based upon the custom AuthenticationProvider by annotating the `CustomAuthenticationProvider` class with `@Component` to make it a Spring managed bean.
+    
+    c) Removed the CustomUserDetailsService definition in `CustomUserDetailsService` class by commenting the `@Component` annotation added in a previous task.
+
+    d) Verified that the newly added custom AuthenticationProvider works. Since the custom `AuthenticationProvider` can validate the identity of spring/spring, you can now verify that you can access a secured resource using it.
+        - Re-ran this application.
+        - Using Chrome Incognito browser, 
+          - Access http://localhost:8080/accounts/0
+          - Enter "spring"/"spring" and verify accounts data
+        - If you want to use "curl", use
+            curl -i -u spring:spring http://localhost:8080/accounts/0
+
+    e) Performed security testing for the user added through custom AuthenticationProvider in `AccountControllerCustomAuthenticationProviderTests` class.
