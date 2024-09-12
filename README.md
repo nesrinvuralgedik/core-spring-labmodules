@@ -1130,65 +1130,66 @@ The `RestWsApplication` we built in the previous lab is not secured. We are goin
 
 
 3) **Configured Authentication and Authorization**
+
 Since Web security is enabled, we are ready to configure authentication and authorization.
 
-    a) Configured authorization using `requestMatchers` method.
+a) Configured authorization using `requestMatchers` method.
 
-    - The most common form of authorization (access control) is through the usage of roles.
-    - We are going define 3 roles - `USER`, `ADMIN`, and `SUPERADMIN` with the following access control rules:
-      - Allow DELETE on the /accounts resource (or any sub-resource) for "SUPERADMIN" role only
-      - Allow POST or PUT on the /accounts resource (or any sub-resource) for "ADMIN" or "SUPERADMIN" role only
-      - Allow GET on the /accounts resource (or any sub-resource) for all roles - "USER", "ADMIN", "SUPERADMIN"
-      - Allow GET on the /authorities resource for all roles - "USER", "ADMIN", "SUPERADMIN"
-      - Deny any request that doesn't match any authorization rule
-    - Added the following code to the `filterChain` method in `RestSecurityConfig` class.
-      ```java
-      http.authorizeHttpRequests((authz) -> authz
-      .requestMatchers(HttpMethod.DELETE, "/accounts/**").hasRole("SUPERADMIN")
-      .requestMatchers(HttpMethod.POST, "/accounts/**").hasAnyRole("ADMIN", "SUPERADMIN")
-      .requestMatchers(HttpMethod.PUT, "/accounts/**").hasAnyRole("ADMIN", "SUPERADMIN")
-      .requestMatchers(HttpMethod.GET, "/accounts/**").hasAnyRole("USER", "ADMIN", "SUPERADMIN")
-      .requestMatchers(HttpMethod.GET, "/authorities").hasAnyRole("USER", "ADMIN", "SUPERADMIN")
-      .anyRequest().denyAll())
-       ```
-
-    b) Configured authentication using in-memory storage.
-    
-    - We are going to set up in-memory `UserDetailsService` and define three users with a corresponding set of roles assigned.
-
-        - "user"/"user" with "USER" role
-        - "admin"/"admin" with "USER" and "ADMIN" roles
-        - "superadmin"/"superadmin" with "USER", "ADMIN", and "SUPERADMIN" roles
-
-   - Made sure to store the password in encoded form.
-   - Passed all users in the `InMemoryUserDetailsManager` constructor.
-   - Added the following code to the `userDetailsService` method in `RestSecurityConfig` class.
-
+- The most common form of authorization (access control) is through the usage of roles.
+  - We are going define 3 roles - `USER`, `ADMIN`, and `SUPERADMIN` with the following access control rules:
+    - Allow DELETE on the /accounts resource (or any sub-resource) for "SUPERADMIN" role only
+    - Allow POST or PUT on the /accounts resource (or any sub-resource) for "ADMIN" or "SUPERADMIN" role only
+    - Allow GET on the /accounts resource (or any sub-resource) for all roles - "USER", "ADMIN", "SUPERADMIN"
+    - Allow GET on the /authorities resource for all roles - "USER", "ADMIN", "SUPERADMIN"
+    - Deny any request that doesn't match any authorization rule
+  - Added the following code to the `filterChain` method in `RestSecurityConfig` class.
     ```java
-    UserDetails user = User.withUsername("user").password(passwordEncoder.encode("user")).roles("USER").build();
-    UserDetails admin = User.withUsername("admin").password(passwordEncoder.encode("admin")).roles("USER", "ADMIN").build();
-    UserDetails superadmin = User.withUsername("superadmin").password(passwordEncoder.encode("superadmin")).roles("USER", "ADMIN", "SUPERADMIN").build();
+    http.authorizeHttpRequests((authz) -> authz
+    .requestMatchers(HttpMethod.DELETE, "/accounts/**").hasRole("SUPERADMIN")
+    .requestMatchers(HttpMethod.POST, "/accounts/**").hasAnyRole("ADMIN", "SUPERADMIN")
+    .requestMatchers(HttpMethod.PUT, "/accounts/**").hasAnyRole("ADMIN", "SUPERADMIN")
+    .requestMatchers(HttpMethod.GET, "/accounts/**").hasAnyRole("USER", "ADMIN", "SUPERADMIN")
+    .requestMatchers(HttpMethod.GET, "/authorities").hasAnyRole("USER", "ADMIN", "SUPERADMIN")
+    .anyRequest().denyAll())
+     ```
+
+      b) Configured authentication using in-memory storage.
     
-    return new InMemoryUserDetailsManager(user, admin, superadmin);
-    ```
+      - We are going to set up in-memory `UserDetailsService` and define three users with a corresponding set of roles assigned.
+    
+          - "user"/"user" with "USER" role
+          - "admin"/"admin" with "USER" and "ADMIN" roles
+          - "superadmin"/"superadmin" with "USER", "ADMIN", and "SUPERADMIN" roles
+    
+        - Made sure to store the password in encoded form.
+        - Passed all users in the `InMemoryUserDetailsManager` constructor.
+        - Added the following code to the `userDetailsService` method in `RestSecurityConfig` class.
 
-    c) Performed security testing against MVC layer.
+        ```java
+        UserDetails user = User.withUsername("user").password(passwordEncoder.encode("user")).roles("USER").build();
+        UserDetails admin = User.withUsername("admin").password(passwordEncoder.encode("admin")).roles("USER", "ADMIN").build();
+        UserDetails superadmin = User.withUsername("superadmin").password(passwordEncoder.encode("superadmin")).roles("USER", "ADMIN", "SUPERADMIN").build();
+    
+        return new InMemoryUserDetailsManager(user, admin, superadmin);
+        ```
 
-    - We are going to test if the security configuration works against MVC layer using `@WebMvcTest` and `@WithMockUser` annotations.
-    - In the `AccountControllerTests` test class, the tests cover the following scenarios:
+        c) Performed security testing against MVC layer.
 
-        - Using an `invalid` user credential to perform any operation should result in `401 Unauthorized` response.
-        - Using `USER` role, we can only perform read operation.
-        - Using `ADMI`N role, we can perform create/update operation.
-        - Using `SUPERADMIN` role, we can perform delete operation.
+        - We are going to test if the security configuration works against MVC layer using `@WebMvcTest` and `@WithMockUser` annotations.
+        - In the `AccountControllerTests` test class, the tests cover the following scenarios:
 
-    d) Wrote a test that verifies that a user with `USER` role is not permitted to perform a `POST` operation. (`createAccount_with_USER_role_should_return_403`)
+            - Using an `invalid` user credential to perform any operation should result in `401 Unauthorized` response.
+            - Using `USER` role, we can only perform read operation.
+            - Using `ADMI`N role, we can perform create/update operation.
+            - Using `SUPERADMIN` role, we can perform delete operation.
 
-    e) Performed security testing against a running server.
+        d) Wrote a test that verifies that a user with `USER` role is not permitted to perform a `POST` operation. (`createAccount_with_USER_role_should_return_403`)
 
-    - We are going to test if the security configuration works using end-to-end testing against the application running over the embedded server.
-    - The tests cover the similar set of scenarios mentioned above in the `AccountClientTests` test class.
-    - Wrote a test that verifies that "user"/"user" is not permitted to create a new Account by using ResponseEntity.
+        e) Performed security testing against a running server.
+
+        - We are going to test if the security configuration works using end-to-end testing against the application running over the embedded server.
+        - The tests cover the similar set of scenarios mentioned above in the `AccountClientTests` test class.
+        - Wrote a test that verifies that "user"/"user" is not permitted to create a new Account by using ResponseEntity.
 
 4) **Retrieved Authorities (Roles) for the Logged-In User**
 
@@ -1221,39 +1222,40 @@ Since Web security is enabled, we are ready to configure authentication and auth
         - The value of the username request parameter of the request URL matches the value of the principal's username or authentication's name. 
           This condition can be specified using SpEL (Spring Expression language).
 
-        ```java
-        @PreAuthorize("hasRole('ADMIN') && #username == principal.username")
-        ```
-        or
+```java
+ @PreAuthorize("hasRole('ADMIN') && #username == principal.username")
+```
+
+or
         
-        ```java
-        @PreAuthorize("hasRole('ADMIN') && #username == authentication.name")
-        ```
+```java
+ @PreAuthorize("hasRole('ADMIN') && #username == authentication.name")
+```
 
-    b) Enabled method security by adding `@EnableMethodSecurity` annotation in `RestSecurityConfig` class.
-       The `prePostEnabled` attribute is set to true by default, this allows the usage of the `@PreAuthorize` annotation.
+b) Enabled method security by adding `@EnableMethodSecurity` annotation in `RestSecurityConfig` class.
+   The `prePostEnabled` attribute is set to true by default, this allows the usage of the `@PreAuthorize` annotation.
 
-    c) Tested the method security using a browser or curl.
- 
-      - Re-ran this application.
-      - Using Chrome Incognito browser, 
-            - Access http://localhost:8080/authorities?username=user, Enter "user"/"user" and verify that 403 failure occurs
-            - If you want to use "curl", use
-               curl -i -u user:user http://localhost:8080/authorities?username=user
-      - Close the Chrome Incognito browser and start a new one,
-          - Access http://localhost:8080/authorities?username=admin, Enter "admin"/"admin" and verify that the roles are displayed successfully
-          - If you want to use "curl", use
-            curl -i -u admin:admin http://localhost:8080/authorities?username=admin
+c) Tested the method security using a browser or curl.
 
-      - Close the Chrome Incognito browser and start a new one,
-          - Access http://localhost:8080/authorities?username=superadmin
-          - Enter "superadmin"/"superadmin" and verify that the roles are displayed successfully
-          - If you want to use "curl", use
-            curl -i -u superadmin:superadmin http://localhost:8080/authorities?username=superadmin
+  - Re-ran this application.
+  - Using Chrome Incognito browser, 
+        - Access http://localhost:8080/authorities?username=user, Enter "user"/"user" and verify that 403 failure occurs
+        - If you want to use "curl", use
+           curl -i -u user:user http://localhost:8080/authorities?username=user
+  - Close the Chrome Incognito browser and start a new one,
+      - Access http://localhost:8080/authorities?username=admin, Enter "admin"/"admin" and verify that the roles are displayed successfully
+      - If you want to use "curl", use
+        curl -i -u admin:admin http://localhost:8080/authorities?username=admin
 
-    d) Performed method security testing with a running server in `AccountServiceMethodSecurityTest` class.
+  - Close the Chrome Incognito browser and start a new one,
+      - Access http://localhost:8080/authorities?username=superadmin
+      - Enter "superadmin"/"superadmin" and verify that the roles are displayed successfully
+      - If you want to use "curl", use
+        curl -i -u superadmin:superadmin http://localhost:8080/authorities?username=superadmin
 
-    e) Wrote a test that verifies that getting authorities using http://localhost:8080/authorities?username=superadmin with superadmin/superadmin credential should return three roles ROLE_SUPERADMIN, ROLE_ADMIN, and ROLE_USER in `AccountServiceMethodSecurityTest` class.
+d) Performed method security testing with a running server in `AccountServiceMethodSecurityTest` class.
+
+e) Wrote a test that verifies that getting authorities using http://localhost:8080/authorities?username=superadmin with superadmin/superadmin credential should return three roles ROLE_SUPERADMIN, ROLE_ADMIN, and ROLE_USER in `AccountServiceMethodSecurityTest` class.
 
 6) **Created Custom UserDetailsService**
 
@@ -1307,3 +1309,370 @@ Since Web security is enabled, we are ready to configure authentication and auth
             curl -i -u spring:spring http://localhost:8080/accounts/0
 
     e) Performed security testing for the user added through custom AuthenticationProvider in `AccountControllerCustomAuthenticationProviderTests` class.
+
+# MODULE 17 - Spring Actuator
+
+## Spring Actuator Lab
+
+We will learn how to:
+* Configure Spring Boot Actuator
+* Expose some or all Actuator endpoints
+* Define custom metrics
+* Extend the /actuator/health endpoint to add custom health checks
+
+All production applications should have health monitoring, and will often need metric gathering. 
+Actuator gives us both of these. We will be enabling actuator in our project and implementing mechanisms to provide an additional custom metric 
+to indicate the number of times Account details have been requested. Additionally, you will be creating a custom HealthIndicator and adding that 
+to the overall health status that is obtained.
+
+### Instructions
+
+1) In the `pom.xml`(or `build.gradle`) for the actuator project, added the Spring Boot Actuator starter.
+
+```xml
+           <dependency>
+               <groupId>org.springframework.boot</groupId>
+               <artifactId>spring-boot-starter-actuator</artifactId>
+          </dependency>
+```
+
+2) Reviewed application
+    
+    a) Ran the application and using a browser open the following links:
+
+      - http://localhost:8080/actuator - worked
+      - http://localhost:8080/actuator/metrics - failed (404)
+        Even though there are many valid endpoints, only the health endpoint is automatically exposed in Actuator.
+
+    b) If you prefer you can use `curl` or `Postman` to examine the links.
+
+3) **Exposed HTTP actuator endpoints.**
+
+    a) In the `application.properties` file, exposed the `metrics` and `beans` endpoints by setting the appropriate Spring Boot property.
+
+    ```properties
+    management.endpoints.web.exposure.include=beans, metrics
+    ```   
+
+    b) Restarted the application and accessed beans and metrics endpoints tracked by Actuator.
+
+     - http://localhost:8080/actuator/metrics
+     - http://localhost:8080/actuator/beans
+
+    c) Tried fetching the data for one of the metrics by constructing a url based on the name of the metric.
+    
+    - http://localhost:8080/actuator/metrics/jvm.memory.max
+
+    d) Exposed all HTTP actuator endpoints by modifying the above property.
+
+    ```properties
+    management.endpoints.web.exposure.include=*
+    ```   
+
+    e) Restarted the application and accessed some metrics such as following.
+
+    - http://localhost:8080/actuator/beans
+    - http://localhost:8080/actuator/health
+    - http://localhost:8080/actuator/info
+    - http://localhost:8080/actuator/mappings
+    - http://localhost:8080/actuator/loggers
+    - http://localhost:8080/actuator/metrics/jvm.memory.max
+    - http://localhost:8080/actuator/metrics/http.server.requests
+    - http://localhost:8080/actuator/metrics/http.server.requests?tag=method:GET
+    - http://localhost:8080/actuator/metrics/http.server.requests?tag=uri:/actuator/beans
+    - http://localhost:8080/notexistent (404 is expected)
+    - http://localhost:8080/actuator/metrics/http.server.requests?tag=status:404
+
+
+4) **Changed log level via `./actuator/loggers` endpoint**
+
+    a) Verified the current logging level of the `accounts.web` package is `DEBUG`.
+
+     - http://localhost:8080/actuator/loggers/accounts.web
+   
+    ```json
+    {
+      "configuredLevel": null,
+      "effectiveLevel": "DEBUG"
+    }
+    ```
+
+    b) Added a log statement as shown below to the `accountSummary()` method of the `AccountController` class. This message will be used to verify if we can change the logging level without restarting the application.
+
+    ```java
+    logger.debug("Logging message within accountSummary()");
+    ```
+    c) Restarted the application and access "/accounts" URL and verify the log message gets displayed.
+
+    d) Changed logging level of "accounts.web" package to INFO using curl command below (or use Postman)
+
+    ```shell
+    curl -i -XPOST -H"Content-Type: application/json" localhost:8080/actuator/loggers/accounts.web -d'{"configuredLevel": "INFO"}'
+    ```
+    
+    e) Accessed "/accounts" URL (WITHOUT restarting the application) and verified the logging message no longer gets displayed.
+    
+    f) Verified that the effectiveLevel of the `accounts.web` package is now changed to `INFO`.
+
+5) **Publish Build Information**
+
+Spring Boot Actuator’s info endpoint publishes information about our application specified in the `META-INF/build-info.properties` file.
+The `META-INF/build-info.properties` can be created by the Spring Boot Maven or Gradle Plugin during build.
+
+   a) Added Maven goal (or Gradle task)
+
+   - If you are using Maven, add `build-info` goal:
+
+```xml
+<plugin>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-maven-plugin</artifactId>
+  <executions>
+    <execution>
+      <goals>
+        <goal>build-info</goal>
+      </goals>
+    </execution>
+  </executions>
+</plugin>
+```
+
+   - if you are using Gradle, add BuildInfo task:
+
+```groovy
+springBoot  {
+    buildInfo()
+}
+```
+
+   - Rebuild the application preferably at the command line:
+ 
+```shell
+./mvnw -pl 00-rewards-common -pl 01-rewards-db -pl 44-actuator clean install (for Maven)
+./gradlew 44-actuator:clean 44-actuator:build (for Gradle)
+```
+
+   - Verify the presence of the `build-info.properties` file as following:
+
+```shell
+./target/classes/META-INF/build-info.properties (for Maven)
+./build/resources/main/META-INF/build-info.properties (for Gradle)
+```
+
+   - Restarted the application and access "info" endpoint and verify the build info gets displayed.
+
+  b) Added additional properties to the info endpoint to expose the Java runtime information.
+  The Java info contributor is disabled by default, enabled it by adding the following property in the `application.properties`.
+  Also, Added some custom properties to the `application.properties`.
+
+```properties
+management.info.java.enabled=true
+management.info.env.enabled=true
+info.restaurant.location=New York
+info.restaurant.discountPercentage=10
+```
+
+  c) Restarted the application and accessed "info" endpoint and verified additional properties are displayed.
+
+6) **Defined Custom Metrics - Counter**
+
+By default, Actuator exposes a number of useful but rather generic metrics. 
+Often tracking metrics that are specific to our application's domain provides insights into operational, business, or other concerns.
+We'll add a custom metric specific to our application that counts the number of times the account finder method is used.
+
+  a)  Added a Micrometer Counter with a tag. 
+
+   - In the constructor of `AccountController`, injected a `MeterRegistry` through constructor injection by adding an instance of `MeterRegistry` as a second parameter.
+   - Using the `MeterRegistry`, created a `Counter` called "account.fetch" with a tag of "type"/"fromCode" key/value pair by calling `meterRegistry.counter("account.fetch", "type", "fromCode");`.
+   - Stored the counter as a new data-member of `AccountController`.
+
+  b) Incremented the Counter each time `"accountDetails"` method is called. In the `accountDetails()` method, called `counter.increment()`.
+
+  c) Fixed compiler error in `AccountControllerTests` class since we changed the signature of the AccountController's constructor. Passed MeterRegistry object as a second parameter.
+
+  d) Ran the tests in `AccountControllerTests` class to verift they pass. Particularly the `testHandleDetailsRequest()`, which checks that the counter is working correctly.
+
+  e) Verified the result of "account.fetch" metric.
+     - Accessed the new "http://localhost:8080/actuator/metrics/account.fetch" endpoint, and verified the presence of "account.fetch" metric.
+       This displays 0 since no accounts have been fetched yet.
+     - Accessed some accounts (i.e. http://localhost:8080/accounts/1).
+     - Viewed the counter value again at http://localhost:8080/actuator/metrics/account.fetch, now the counter increases with each account fetch.
+     - If we restart the application, the value of the counter resets to 0 since it's kept in memory.
+
+7) **Defined Custom Metrics - Timer**
+
+    a) Added timer using `@Timed` annotation to the accountSummary(..) method.
+
+    ```java
+    @Timed(value="account.timer", extraTags = {"source", "accountSummary"})
+    ```
+
+    b) Added timer using `@Timed` annotation to the accountDetails(..) method.
+
+    ```java
+    @Timed(value="account.timer", extraTags = {"source", "accountDetails"})
+    ```
+    c) Restarted the application and verified the timer result.
+       - Visited the http://localhost:8080/accounts/1 and http://localhost:8080/accounts for a few times.
+       - Visited the (http://localhost:8080/actuator/metrics/account.timer and verified the timer metric.
+
+8) **Got Detailed Health Checks**  
+ 
+    a) Visited the http://localhost:8080/actuator/health endpoint. By default, there is very little info displayed at this endpoint.
+
+    b) Enabled more detailed health info by setting the following property to always displayed in `application.properties` file.
+
+    ```properties
+    management.endpoint.health.show-details=always
+    ```
+
+    c) Restarted the application and refreshed http://localhost:8080/actuator/health to see more health details.
+
+9) **Created Custom Health Checks**
+
+    a) We can extend the default health checks so that our application reports whether it is down or up based on custom criteria or domain logic.
+    
+    b) In this case, we will determine the health of the application based on whether there are any restaurants in the database.
+       If there are no restaurants, then the health status of the application will be considered DOWN.
+
+    c) Set up tests in `RestaurantHealthCheckTest` class.
+       Modified the code to use the `RestaurantHealthCheck.health()` method in each test.
+
+    d) Created custom health indicator in `RestaurantHealthCheck` class by implementing `HealthIndicator` interface.
+        - Made this class implements HealthIndicator interface by implementing health() method.
+            - If there are one or more restaurants in the database, return Health.up().build(), otherwise return Health.down().build().
+        - Made this class a component by annotating `@Component`.
+        - Injected `RestaurantRepository` through constructor injection.
+
+    e) Tested custom health indicator in `RestaurantHealthCheckTest` class.
+        - Created an instance of `RestaurantHealthCheck` class in the `setup` method.
+        - Ran the tests and verified they pass.
+
+    e) Verified the behavior of custom health indicator.
+        - Restarted the application.
+        - Accessed the health endpoint - our application is DOWN because there are no restaurants in the database.
+
+    f) Verified the behavior of custom health indicator with restaurant data.
+        - To populate our database with a Restaurant, changed the `application.properties` to set `spring.sql.init.data-locations` property with `classpath:/data-with-restaurants.sql`.
+        - Restarted the application.
+        - Accessed the health indicator - it is UP this time.
+
+    g) Verified that all tests in `AccountControllerTests` class pass.
+
+10) **Organized Health Indicators Into Groups**
+
+    a) Created 3 groups: "system", "web", and "application" in `the application.properties` as following:
+
+       - The "system" group includes "diskSpace" and "db" health indicators
+       - The "web" group includes "ping" health indicator
+       - The "application" group includes "restaurantHealthCheck" health indicator
+
+    b) For "system" and "application" groups, configured "show-details" with "always"
+
+```properties
+management.endpoint.health.group.system.include=diskSpace, db
+management.endpoint.health.group.system.show-details=always
+management.endpoint.health.group.web.include=ping
+management.endpoint.health.group.application.include=restaurantHealthCheck
+management.endpoint.health.group.application.show-details=always
+```
+
+   c) Removed "management.endpoint.health.show-details=always" we added earlier since it is no longer needed.
+
+   d) Restarted the application and accessed health endpoint of each group.
+
+   - http://localhost:8080/actuator/health/system
+   - http://localhost:8080/actuator/health/web
+   - http://localhost:8080/actuator/health/application
+
+11) **Secured Actuator Endpoints**
+
+    a) Added Spring Boot Security starter to the `pom.xml`(or `build.gradle`) file.
+
+```xml
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+```
+
+   b) Added security configuration to `ActuatorSecurityConfiguration` class.
+
+   c) Configured access control to actuator endpoints as following:
+     
+- Anybody can access "health" and "info" endpoints
+- ADMIN role can access "conditions" endpoint
+- ACTUATOR role can access all the other endpoints
+
+```java
+    http.authorizeHttpRequests((authz) -> authz
+    .requestMatchers(EndpointRequest.to(HealthEndpoint.class, InfoEndpoint.class)).permitAll()
+    .requestMatchers(EndpointRequest.to(ConditionsReportEndpoint.class)).hasRole("ADMIN")
+    .requestMatchers(EndpointRequest.toAnyEndpoint()).hasRole("ACTUATOR")
+    .anyRequest().authenticated())
+    .httpBasic(withDefaults())
+    .csrf(CsrfConfigurer::disable);
+```
+
+   d) Ran the tests checking security configuration for the actuator endpoints in the `AccountClientSecurityTests`.
+
+12) ***Experiment with HealthIndicator**
+
+    a) Changed "spring.sql.init.data-locations" property in the "application.properties" file back to use "classpath:data-no-restaurants.sql".
+
+    b) Instead of returning DOWN when there are no restaurants, defined and used a custom status called NO_RESTAURANTS.
+
+    c) Set "management.endpoint.health.group.application.status.order" property in the "application.properties" file so that NO_RESTAURANTS gets displayed as top-level status for the "application" health group.
+
+```properties
+management.endpoint.health.group.application.status.order=NO_RESTAURANTS, DOWN, UP
+```
+   d) Restarted the application and verified the result.
+
+13) **Used AOP for counting logic**
+
+In general, mixing up different concerns (controller logic and counter logic in this example code) is not considered a good practice:
+it violates Single Responsibility Principle. Instead, usage of AOP provides cleaner code.
+
+   a) Added `spring-boot-starter-aop` starter to the `pom.xml` (or the `build.gradle`).
+
+   b) Created an aspect by annotating `AccountAspect` class with `@Component` and `@Aspect`, 
+   through which `account.fetch` counter, which has a tag of `type`/`fromAspect` key/value pair, 
+   gets incremented every time `accountSummary` method of the `AccountController class` class is invoked.
+
+```java
+@Component
+@Aspect
+public class AccountAspect {
+
+    private Counter counter;
+
+    public AccountAspect(MeterRegistry meterRegistry) {
+        counter = meterRegistry.counter("account.fetch", "type", "fromAspect");
+    }
+
+    @Before("execution(* accounts.web.AccountController.accountSummary(..))")
+    private void incrementCounter() {
+        counter.increment();
+    }
+
+}
+```
+
+   c) Accessed `/accounts` several times and verified the metrics of /actuator/metrics/account.fetch?tag=type:fromAspect.
+
+14) **Accessed Actuator endpoints using JMX**
+
+    a) Since JMX is disabled by default, added "spring.jmx.enabled=true" to the "application.properties".
+    
+    b) Restarted the application.
+
+    c) In a terminal window, ran "jconsole" (from <JDK-directory>/bin).
+
+    d) Selected "accounts.ActuatorApplication" under "Local Process" then clicked "Connect" and accepted the prompted insecure connection.
+
+    e) Selected the MBeans tab, found the org.springframework.boot folder, then opened the Endpoint sub-folder.
+
+    f) Noted that all actuator endpoints ARE exposed for JMX.
+
+    g) Expanded Health->Operations->health, Clicked "health" button on the top right panel and observed the health data gets displayed.
